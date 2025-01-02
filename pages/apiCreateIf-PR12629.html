@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+</body>
+
+</html>
+<script type="module">
+  import { ref, createVaporApp } from './libs/PR-vue.runtime-with-vapor.esm-browser.js';
+  import { delegate as _delegate, setText as _setText, renderEffect as _renderEffect, createIf as _createIf, insert as _insert, delegateEvents as _delegateEvents, template as _template } from './libs/PR-vue.runtime-with-vapor.esm-browser.js';
+  const t0 = _template("<div></div>")
+  const t1 = _template("<button id=\"btn\"></button>")
+  _delegateEvents("click")
+
+  const __sfc__ = {
+    vapor: true,
+    __name: 'App',
+    setup(__props) {
+
+      const count = ref(0)
+      const clickTimes = ref(0)
+      function change() {
+        clickTimes.value++
+        count.value ++
+      }
+
+      function getCount() {
+        return count.value
+      }
+
+      const n24 = t0()
+      const n25 = t1()
+      const n0 = _createIf(() => (count.value) ? () => {
+        const n23 = t0()
+        const n2 = _createIf(() => (getCount() === 1) ? () => {
+          const n4 = t0()
+          _renderEffect(() => _setText(n4, count.value * 2))
+          return n4
+        } : (getCount() === 2) ? () => {
+          const n6 = t0()
+          _renderEffect(() => _setText(n6, count.value * 2))
+          return n6
+        } : (getCount() === 3) ? () => {
+          const n8 = t0()
+          _renderEffect(() => _setText(n8, count.value * 2))
+          return n8
+        } : (getCount() === 4) ? () => {
+          const n10 = t0()
+          _renderEffect(() => _setText(n10, count.value * 2))
+          return n10
+        } : (getCount() % 5 === 0) ? () => {
+          const n12 = t0()
+          _renderEffect(() => _setText(n12, count.value * 2))
+          return n12
+        } : (getCount() === 6) ? () => {
+          const n14 = t0()
+          _renderEffect(() => _setText(n14, count.value * 2))
+          return n14
+        } : (getCount() === 7) ? () => {
+          const n16 = t0()
+          _renderEffect(() => _setText(n16, count.value * 2))
+          return n16
+        } : (getCount() === 8) ? () => {
+          const n18 = t0()
+          _renderEffect(() => _setText(n18, count.value * 2))
+          return n18
+        } : (getCount() === 9) ? () => {
+          const n20 = t0()
+          _renderEffect(() => _setText(n20, count.value * 2))
+          return n20
+        } : () => {
+          const n22 = t0()
+          _renderEffect(() => _setText(n22, count.value))
+          return n22
+        })
+        _insert(n2, n23)
+        return n23
+      } : undefined)
+      _insert(n0, n24)
+      _delegate(n25, "click", () => change)
+      _renderEffect(() => _setText(n25, clickTimes.value))
+      return [n24, n25]
+
+    }
+
+  }
+  createVaporApp(__sfc__).mount('#app')
+</script>
