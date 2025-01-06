@@ -175,7 +175,7 @@ async function runTests(type) {
     console.table(
         results.map((result) => ({
             "页面 URL": result.url,
-            "平均渲染耗时 (ms)": result.averageRenderTime.toFixed(2),
+            "平均耗时 (ms)": result.averageRenderTime.toFixed(2),
             "平均内存占用 (MB)":
                 result.averageMemoryUsage.toFixed(2) +
                 " bytes, " +
