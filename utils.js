@@ -1,5 +1,5 @@
 import * as R from "ramda";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { chromium } from "playwright"
 
 // borrow from js-framework-benchmark
@@ -232,4 +232,12 @@ export async function startBrowser(benchmarkOptions = {}) {
         // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     });
     return browser;
+}
+
+export async function removeFile(path){
+    try {
+        await rm(path);
+    } catch (error) {
+        console.log(`Error removing file: ${path}`);
+    }
 }

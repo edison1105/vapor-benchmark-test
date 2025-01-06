@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
+  <link rel="stylesheet" href="./style.css"></link>
 </head>
 
 <body>
@@ -13,85 +14,176 @@
 
 </html>
 <script type="module">
-  import { ref, createVaporApp } from './libs/vue.runtime-with-vapor.esm-browser.js';
-  import { delegate as _delegate, setText as _setText, renderEffect as _renderEffect, createIf as _createIf, insert as _insert, delegateEvents as _delegateEvents, template as _template } from './libs/vue.runtime-with-vapor.esm-browser.js';
-  const t0 = _template("<div></div>")
-  const t1 = _template("<button id=\"btn\"></button>")
-  _delegateEvents("click")
+  import { ref, createVaporApp, computed, unref as _unref } from './libs/vue.runtime-with-vapor.esm-browser.js';
+  import { children as _children, createIf as _createIf, insert as _insert, delegate as _delegate, setText as _setText, setClass as _setClass, renderEffect as _renderEffect, delegateEvents as _delegateEvents, template as _template } from './libs/vue.runtime-with-vapor.esm-browser.js';
+  const t0 = _template("<div data-v-7ba5bd90 class=\"status-text\">新建工单 - 紧急处理</div>")
+const t1 = _template("<div data-v-7ba5bd90 class=\"status-text\">新建工单 - 正常处理</div>")
+const t2 = _template("<div data-v-7ba5bd90 class=\"status-text\">新建工单 - 低优先级</div>")
+const t3 = _template("<div data-v-7ba5bd90 class=\"ticket-card new\"></div>")
+const t4 = _template("<div data-v-7ba5bd90 class=\"status-text\">等待处理 - 加急</div>")
+const t5 = _template("<div data-v-7ba5bd90 class=\"status-text\">等待处理 - 标准</div>")
+const t6 = _template("<div data-v-7ba5bd90 class=\"status-text\">等待处理 - 普通</div>")
+const t7 = _template("<div data-v-7ba5bd90 class=\"ticket-card pending\"></div>")
+const t8 = _template("<div data-v-7ba5bd90 class=\"status-text\">处理中 - 优先处理</div>")
+const t9 = _template("<div data-v-7ba5bd90 class=\"status-text\">处理中 - 按序处理</div>")
+const t10 = _template("<div data-v-7ba5bd90 class=\"status-text\">处理中 - 待处理</div>")
+const t11 = _template("<div data-v-7ba5bd90 class=\"ticket-card processing\"></div>")
+const t12 = _template("<div data-v-7ba5bd90 class=\"status-text\">审核中 - 加急审核</div>")
+const t13 = _template("<div data-v-7ba5bd90 class=\"status-text\">审核中 - 常规审核</div>")
+const t14 = _template("<div data-v-7ba5bd90 class=\"status-text\">审核中 - 普通审核</div>")
+const t15 = _template("<div data-v-7ba5bd90 class=\"ticket-card reviewing\"></div>")
+const t16 = _template("<div data-v-7ba5bd90 class=\"status-text\">已解决 - 紧急工单</div>")
+const t17 = _template("<div data-v-7ba5bd90 class=\"status-text\">已解决 - 常规工单</div>")
+const t18 = _template("<div data-v-7ba5bd90 class=\"status-text\">已解决 - 普通工单</div>")
+const t19 = _template("<div data-v-7ba5bd90 class=\"ticket-card resolved\"></div>")
+const t20 = _template("<div data-v-7ba5bd90 class=\"status-text\">已关闭 - 紧急工单</div>")
+const t21 = _template("<div data-v-7ba5bd90 class=\"status-text\">已关闭 - 常规工单</div>")
+const t22 = _template("<div data-v-7ba5bd90 class=\"status-text\">已关闭 - 普通工单</div>")
+const t23 = _template("<div data-v-7ba5bd90 class=\"ticket-card closed\"></div>")
+const t24 = _template("<div data-v-7ba5bd90 class=\"ticket-container\"><h2 data-v-7ba5bd90>工单状态管理</h2><!-- 状态展示区 --><div data-v-7ba5bd90 class=\"status-display\"><!-- 工单状态嵌套 --></div><!-- 控制按钮 --><div data-v-7ba5bd90 class=\"control-panel\"><button data-v-7ba5bd90></button></div></div>", true)
+_delegateEvents("click")
 
-  const __sfc__ = {
-    vapor: true,
-    __name: 'App',
-    setup(__props) {
+const __sfc__ = {
+  vapor: true,
+  __name: 'App',
+  setup(__props) {
 
-      const count = ref(0)
-      const clickTimes = ref(0)
-      function change() {
-        clickTimes.value++
-        count.value ++
-      }
+const ticketState = ref('new')
+const priority = ref('medium')
 
-      function getCount() {
-        return count.value
-      }
+const ticketStates = ['new', 'pending', 'processing', 'reviewing', 'resolved', 'closed']
+const priorities = ['high', 'medium', 'low']
 
+const stateTextMap = {
+  new: '新建',
+  pending: '待处理',
+  processing: '处理中',
+  reviewing: '审核中',
+  resolved: '已解决',
+  closed: '已关闭'
+}
+let count = ref(0)
 
+const clickCount = computed(() => count.value)
 
-      const n24 = t0()
-      const n25 = t1()
-      const n0 = _createIf(() => (count.value), () => {
-        const n23 = t0()
-        const n2 = _createIf(() => (getCount() === 1), () => {
-          const n4 = t0()
-          _renderEffect(() => _setText(n4, count.value * 2))
-          return n4
-        }, () => _createIf(() => (getCount() === 2), () => {
-          const n6 = t0()
-          _renderEffect(() => _setText(n6, count.value * 2))
-          return n6
-        }, () => _createIf(() => (getCount() === 3), () => {
-          const n8 = t0()
-          _renderEffect(() => _setText(n8, count.value * 2))
-          return n8
-        }, () => _createIf(() => (getCount() === 4), () => {
-          const n10 = t0()
-          _renderEffect(() => _setText(n10, count.value * 2))
-          return n10
-        }, () => _createIf(() => (getCount() % 5 === 0), () => {
-          const n12 = t0()
-          _renderEffect(() => _setText(n12, count.value * 2))
-          return n12
-        }, () => _createIf(() => (getCount() === 6), () => {
-          const n14 = t0()
-          _renderEffect(() => _setText(n14, count.value * 2))
-          return n14
-        }, () => _createIf(() => (getCount() === 7), () => {
-          const n16 = t0()
-          _renderEffect(() => _setText(n16, count.value * 2))
-          return n16
-        }, () => _createIf(() => (getCount() === 8), () => {
-          const n18 = t0()
-          _renderEffect(() => _setText(n18, count.value * 2))
-          return n18
-        }, () => _createIf(() => (getCount() === 9), () => {
-          const n20 = t0()
-          _renderEffect(() => _setText(n20, count.value * 2))
-          return n20
-        }, () => {
-          const n22 = t0()
-          _renderEffect(() => _setText(n22, count.value))
-          return n22
-        })))))))))
-        _insert(n2, n23)
-        return n23
-      })
-      _insert(n0, n24)
-      _delegate(n25, "click", () => change)
-      _renderEffect(() => _setText(n25, clickTimes.value))
-      return [n24, n25]
+const updateState = () => {
+  count.value++
+  // 只更新最后一个 branch
+  if (count.value >= 6) {
+    ticketState.value = ''
+    const currentPriorityIndex = priorities.indexOf(priority.value)
+    const nextPriorityIndex = (currentPriorityIndex + 1) % priorities.length
+    priority.value = priorities[nextPriorityIndex]
+  } else {
+    const currentStateIndex = ticketStates.indexOf(ticketState.value)
+    const nextStateIndex = (currentStateIndex + 1) % ticketStates.length
+    ticketState.value = ticketStates[nextStateIndex]
 
-    }
-
+    const currentPriorityIndex = priorities.indexOf(priority.value)
+    const nextPriorityIndex = (currentPriorityIndex + 1) % priorities.length
+    priority.value = priorities[nextPriorityIndex]
   }
+}
+
+
+  const n57 = t24()
+  const n55 = _children(n57, 2)
+  const n56 = _children(n57, 4, 0)
+  const n0 = _createIf(() => (ticketState.value === 'new'), () => {
+    const n9 = t3()
+    const n2 = _createIf(() => (priority.value === 'high'), () => {
+      const n4 = t0()
+      return n4
+    }, () => _createIf(() => (priority.value === 'medium'), () => {
+      const n6 = t1()
+      return n6
+    }, () => {
+      const n8 = t2()
+      return n8
+    }))
+    _insert(n2, n9)
+    return n9
+  }, () => _createIf(() => (ticketState.value === 'pending'), () => {
+    const n18 = t7()
+    const n11 = _createIf(() => (priority.value === 'high'), () => {
+      const n13 = t4()
+      return n13
+    }, () => _createIf(() => (priority.value === 'medium'), () => {
+      const n15 = t5()
+      return n15
+    }, () => {
+      const n17 = t6()
+      return n17
+    }))
+    _insert(n11, n18)
+    return n18
+  }, () => _createIf(() => (ticketState.value === 'processing'), () => {
+    const n27 = t11()
+    const n20 = _createIf(() => (priority.value === 'high'), () => {
+      const n22 = t8()
+      return n22
+    }, () => _createIf(() => (priority.value === 'medium'), () => {
+      const n24 = t9()
+      return n24
+    }, () => {
+      const n26 = t10()
+      return n26
+    }))
+    _insert(n20, n27)
+    return n27
+  }, () => _createIf(() => (ticketState.value === 'reviewing'), () => {
+    const n36 = t15()
+    const n29 = _createIf(() => (priority.value === 'high'), () => {
+      const n31 = t12()
+      return n31
+    }, () => _createIf(() => (priority.value === 'medium'), () => {
+      const n33 = t13()
+      return n33
+    }, () => {
+      const n35 = t14()
+      return n35
+    }))
+    _insert(n29, n36)
+    return n36
+  }, () => _createIf(() => (ticketState.value === 'resolved'), () => {
+    const n45 = t19()
+    const n38 = _createIf(() => (priority.value === 'high'), () => {
+      const n40 = t16()
+      return n40
+    }, () => _createIf(() => (priority.value === 'medium'), () => {
+      const n42 = t17()
+      return n42
+    }, () => {
+      const n44 = t18()
+      return n44
+    }))
+    _insert(n38, n45)
+    return n45
+  }, () => _createIf(() => (ticketState.value === 'closed' || _unref(count)>=6), () => {
+    const n54 = t23()
+    const n47 = _createIf(() => (priority.value === 'high'), () => {
+      const n49 = t20()
+      return n49
+    }, () => _createIf(() => (priority.value === 'medium'), () => {
+      const n51 = t21()
+      return n51
+    }, () => {
+      const n53 = t22()
+      return n53
+    }))
+    _insert(n47, n54)
+    return n54
+  }))))))
+  _insert(n0, n55)
+  _delegate(n56, "click", () => updateState)
+  _renderEffect(() => {
+    _setText(n56, " click count (", clickCount.value, ") ")
+    _setClass(n56, ["state-button", ticketState.value])
+  })
+  return n57
+
+}
+
+}
   createVaporApp(__sfc__).mount('#app')
 </script>

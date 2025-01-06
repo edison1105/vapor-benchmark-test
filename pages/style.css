@@ -1,0 +1,95 @@
+.ticket-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  
+  .status-display {
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    min-height: 150px;
+  }
+  
+  .ticket-card {
+    padding: 20px;
+    border-radius: 6px;
+    text-align: center;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+  }
+  
+  .status-text {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+  
+  /* 工单状态样式 */
+  .ticket-card.new {
+    background-color: #e3f2fd;
+    border: 2px solid #90caf9;
+  }
+  
+  .ticket-card.pending {
+    background-color: #fff3e0;
+    border: 2px solid #ffcc80;
+  }
+  
+  .ticket-card.processing {
+    background-color: #e8f5e9;
+    border: 2px solid #a5d6a7;
+  }
+  
+  .ticket-card.reviewing {
+    background-color: #f3e5f5;
+    border: 2px solid #ce93d8;
+  }
+  
+  .ticket-card.resolved {
+    background-color: #e8eaf6;
+    border: 2px solid #9fa8da;
+  }
+  
+  .ticket-card.closed {
+    background-color: #efebe9;
+    border: 2px solid #bcaaa4;
+  }
+  
+  /* 按钮样式 */
+  .control-panel {
+    margin-top: 20px;
+  }
+  
+  .state-button {
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+    background-color: #2196f3;
+    transition: all 0.3s ease;
+  }
+  
+  .state-button:hover {
+    opacity: 0.9;
+  }
+  
+  /* 优先级相关样式会通过父级状态卡片的类自动应用 */
+  [data-priority="high"] .status-text {
+    color: #d32f2f;
+  }
+  
+  [data-priority="medium"] .status-text {
+    color: #1976d2;
+  }
+  
+  [data-priority="low"] .status-text {
+    color: #388e3c;
+  }
+  
+  
