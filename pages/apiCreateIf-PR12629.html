@@ -117,7 +117,7 @@ const updateState = () => {
     })
     _insert(n11, n18)
     return n18
-  } : (ticketState.value === 'processing') ? () => {
+  } : (ticketState.value === 'processing' || _unref(count)>=6) ? () => {
     const n27 = t11()
     const n20 = _createIf(() => (priority.value === 'high') ? () => {
       const n22 = t8()
@@ -159,7 +159,7 @@ const updateState = () => {
     })
     _insert(n38, n45)
     return n45
-  } : (ticketState.value === 'closed' || _unref(count)>=6) ? () => {
+  } : (ticketState.value === 'closed') ? () => {
     const n54 = t23()
     const n47 = _createIf(() => (priority.value === 'high') ? () => {
       const n49 = t20()

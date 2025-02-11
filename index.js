@@ -7,12 +7,13 @@ import {
     removeFile,
 } from "./utils.js";
 
-async function runCPUBenchmark(url, numWarmup, btnSelector, getExpectedFn) {
+async function runCPUBenchmark(url, numWarmup, btnSelector, getExpectedFn, throttleCPU = 50) {
     const browser = await startBrowser();
     const page = await browser.newPage();
 
     let currentCount = 0;
     try {
+        const client = await page.context().newCDPSession(page);
         await page.goto(url, { waitUntil: "networkidle" });
         await page.waitForSelector(btnSelector);
 
@@ -28,6 +29,7 @@ async function runCPUBenchmark(url, numWarmup, btnSelector, getExpectedFn) {
         }
 
         await forceGC(page);
+        await client.send("Emulation.setCPUThrottlingRate", { rate: throttleCPU });
         const tracingFile = `./temp/tracing_${Date.now()}.json`;
         await browser.startTracing(page, {
             path: tracingFile,
@@ -139,6 +141,7 @@ async function runTests(type) {
                     );
                     totalRenderTime += renderDuration;
                 } catch (error) {
+                    console.log(error)
                     count--;
                 }
             }
@@ -185,6 +188,6 @@ async function runTests(type) {
     );
 }
 
-//runTests('cpu').catch(console.error);
+// runTests('cpu').catch(console.error);
 //  runTests('mem').catch(console.error);
 runTests('all').catch(console.error);
