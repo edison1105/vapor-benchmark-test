@@ -4,8 +4,10 @@ test vapor benchmark
 
 ```bash
 # please ensure `serve` is globally installed first
-- 1.nr serve 
-- 2.nr bench
+- 1.ni # or pnpm i
+- 2.pnpm exec playwright install
+- 3.nr serve 
+- 4.nr bench
 ```
 
 ## Note
