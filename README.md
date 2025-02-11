@@ -3,7 +3,6 @@ test vapor benchmark
 ## Usage
 
 ```bash
-# please ensure `serve` is globally installed first
 - 1.ni # or pnpm i
 - 2.pnpm exec playwright install
 - 3.nr serve 
