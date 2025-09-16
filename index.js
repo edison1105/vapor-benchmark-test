@@ -37,31 +37,31 @@ async function runTests() {
   const numTests = 10;
   const results = [];
   for (const url of pages) {
-    let totalRenderTime = 0;
+    let total = 0;
     let count = numTests;
 
     for (let i = 0; i < numTests; i++) {
       try {
         const duration = await runBenchmark(url);
-        totalRenderTime += duration;
+        total += duration;
       } catch (error) {
         console.log(error);
         count--;
       }
     }
-    const averageRenderTime = totalRenderTime / count;
+    const avg = total / count;
 
     results.push({
       url,
-      averageRenderTime,
+      avg,
     });
   }
 
-  console.log("测试结果:");
+  console.log("Result:");
   console.table(
     results.map((result) => ({
-      "页面 URL": result.url,
-      "耗时 (ms)": result.averageRenderTime.toFixed(2),
+      "URL": result.url,
+      "avg duration (ms)": result.avg.toFixed(2),
     }))
   );
 }
