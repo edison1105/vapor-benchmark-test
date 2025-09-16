@@ -20,22 +20,16 @@ async function runBenchmark(url) {
     // console.log("Scripting time:", scriptingTime);
     // removeFile(tracingFile)
 
-    const hydrationMeasures = await page.evaluate(() => {
-      return performance
-        .getEntriesByName("vue-hydration-total")
-        .map((entry) => ({
-          name: entry.name,
-          duration: entry.duration,
-        }));
+    const measure = await page.evaluate(() => {
+      return {
+        scriptingTime:performance.getEntriesByName("vue-hydration-script-total")[0].duration,
+        hydrationTime: performance.getEntriesByName("vue-hydration-total")[0].duration,
+      };
     });
-    
-    const hydrationTime = hydrationMeasures[0].duration
-    console.log("Hydration time:", hydrationTime);
 
-    return {
-      // scriptingTime,
-      hydrationTime,
-    };
+    console.log( measure);
+    return measure
+
   } catch (error) {
     throw error;
   } finally {
@@ -61,19 +55,19 @@ async function runTests() {
       try {
         const { scriptingTime, hydrationTime } = await runBenchmark(url);
         total += hydrationTime;
-        // totalScripting += scriptingTime;
+        totalScripting += scriptingTime;
       } catch (error) {
         console.log(error);
         count--;
       }
     }
     const avgHydrationTime = total / count;
-    // const avgScriptingTime = totalScripting / count;
+    const avgScriptingTime = totalScripting / count;
 
     results.push({
       url,
       avgHydrationTime,
-      // avgScriptingTime,
+      avgScriptingTime,
     });
   }
 
@@ -82,7 +76,7 @@ async function runTests() {
     results.map((result) => ({
       URL: result.url,
       "total (ms)": result.avgHydrationTime.toFixed(2),
-      // "scripting (ms)": result.avgScriptingTime.toFixed(2),
+      "scripting (ms)": result.avgScriptingTime.toFixed(2),
     }))
   );
 }
