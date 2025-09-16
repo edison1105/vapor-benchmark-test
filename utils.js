@@ -150,6 +150,13 @@ async function fetchEventsFromPerformanceLog(fileName) {
     return timingResults;
 }
 
+export async function getScriptingEntries(fileName) {
+    const contents = await readFile(fileName, { encoding: "utf8" });
+    const json = JSON.parse(contents);
+    const entries = json["traceEvents"];
+    return entries.filter(x=>x.name === 'v8.evaluateModule');
+}
+
 
 export function extractRelevantEvents(entries) {
     let filteredEvents = [];

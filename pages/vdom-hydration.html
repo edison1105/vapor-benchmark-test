@@ -21,8 +21,8 @@
   import App from './components/VDOMApp.js';
   performance.mark('vue-hydration-start')
   createSSRApp(App).mount("#app");
+  performance.mark('vue-hydration-end')
   nextTick().then(() => {
-    performance.mark('vue-hydration-end')
     performance.measure('vue-hydration-total', 'vue-hydration-start', 'vue-hydration-end')
 
     const measures = performance.getEntriesByName('vue-hydration-total')

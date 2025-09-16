@@ -13181,14 +13181,19 @@ let insertionParent;
 let insertionAnchor;
 function setInsertionState(parent, anchor) {
   insertionParent = parent;
-  if (isHydrating) {
-    initializeHydrationState(anchor, parent);
+  if (anchor !== void 0) {
+    if (isHydrating) {
+      insertionAnchor = anchor;
+      initializeHydrationState(parent);
+    } else {
+      insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
+      cacheTemplateChildren(parent);
+    }
   } else {
-    cacheTemplateChildren(anchor, parent);
+    insertionAnchor = void 0;
   }
 }
-function initializeHydrationState(anchor, parent) {
-  insertionAnchor = anchor;
+function initializeHydrationState(parent) {
   if (!hydrationStateCache.has(parent)) {
     const childNodes = parent.childNodes;
     const len = childNodes.length;
@@ -13230,8 +13235,7 @@ function initializeHydrationState(anchor, parent) {
     });
   }
 }
-function cacheTemplateChildren(anchor, parent) {
-  insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
+function cacheTemplateChildren(parent) {
   if (!parent.$children) {
     const nodes = parent.childNodes;
     const len = nodes.length;
