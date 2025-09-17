@@ -1,4 +1,4 @@
-window.ITEM_COUNT = 8500; 
+window.ITEM_COUNT = 10000; 
 
 export function genHtml() {
   let items = "";
