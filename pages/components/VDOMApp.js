@@ -1,28 +1,20 @@
-/* Analyzed bindings: {
-  "Comp": "setup-const",
-  "ref": "setup-const",
-  "msg": "setup-ref"
-} */
+
 import {
   ref,
   renderList as _renderList,
   Fragment as _Fragment,
   openBlock as _openBlock,
   createElementBlock as _createElementBlock,
-  toDisplayString as _toDisplayString,
   createElementVNode as _createElementVNode,
-  withCtx as _withCtx,
-  createVNode as _createVNode,
-  createCommentVNode as _createCommentVNode,
+  toDisplayString as _toDisplayString,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
 
-import Comp from "./VDOMChild.js";
+const _hoisted_1 = ["value"];
 
 const __sfc__ = {
   __name: "App",
   setup(__props) {
-    const msg = ref("hi");
-    const show = ref(true);
+    const msg = ref("Rendering");
 
     return (_ctx, _cache) => {
       return (
@@ -30,49 +22,33 @@ const __sfc__ = {
         _createElementBlock(
           _Fragment,
           null,
-          [
-            _createElementVNode(
-              "button",
-              {
-                onClick:
-                  _cache[0] ||
-                  (_cache[0] = ($event) => (show.value = !show.value)),
-              },
-              "toggle"
-            ),
-            show.value
-              ? (_openBlock(),
-                _createElementBlock(
-                  _Fragment,
-                  { key: 0 },
-                  _renderList(window.ITEM_COUNT, (item) => {
-                    return _createVNode(
-                      Comp,
-                      { item: item },
-                      {
-                        default: _withCtx(() => [
-                          _createElementVNode(
-                            "span",
-                            null,
-                            _toDisplayString(msg.value),
-                            1 /* TEXT */
-                          ),
-                        ]),
-                        _: 2 /* DYNAMIC */,
-                      },
-                      1032 /* PROPS, DYNAMIC_SLOTS */,
-                      ["item"]
-                    );
-                  }),
-                  64 /* STABLE_FRAGMENT */
-                ))
-              : _createCommentVNode("v-if", true),
-          ],
+          _renderList(window.ITEM_COUNT, (item) => {
+            return _createElementVNode("div", null, [
+              _createElementVNode(
+                "input",
+                {
+                  value: msg.value,
+                  onInput:
+                    _cache[0] ||
+                    (_cache[0] = ($event) => (msg.value = $event.target.value)),
+                },
+                null,
+                40 /* PROPS, NEED_HYDRATION */,
+                _hoisted_1
+              ),
+              _createElementVNode(
+                "h1",
+                null,
+                _toDisplayString(msg.value),
+                1 /* TEXT */
+              ),
+            ]);
+          }),
           64 /* STABLE_FRAGMENT */
         )
       );
     };
   },
 };
-__sfc__.__file = "src/App.vue"
-export default __sfc__
+__sfc__.__file = "src/App.vue";
+export default __sfc__;

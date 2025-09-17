@@ -13,40 +13,39 @@ import {
   createFor as _createFor,
   template as _template,
   createIf as _createIf,
-  delegateEvents as _delegateEvents
+  delegateEvents as _delegateEvents,
+  applyTextModel as _applyTextModel,
+  createSlot as _createSlot,
+  setValue as _setValue,
+  next as _next,
+  child as _child,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js"
+const t0 = _template("<div><input><h1> </h1></div>", true)
+_delegateEvents("input")
 
-const t0 = _template("<button>toggle</button>")
-const t1 = _template("<span> </span>")
-_delegateEvents("click")
-import Comp from './VaporChild.js';
 
 const __sfc__ = {
   __name: 'App',
   __vapor: true,
   setup(__props) {
 
-const msg = ref('hi')
-const show = ref(true)
+const msg = ref('Rendering')
 
 
-  const n0 = t0()
-  const n1 = _createIf(() => (show.value), () => {
-    const n3 = _createFor(() => window.ITEM_COUNT, (_for_item0) => {
-      const n6 = _createComponent(Comp, { item: () => (_for_item0.value) }, {
-        "default": () => {
-          const n5 = t1()
-          const x5 = _txt(n5)
-          _renderEffect(() => _setText(x5, _toDisplayString(msg.value)))
-          return n5
-        }
-      })
-      return n6
-    }, undefined, 6)
-    return n3
-  })
-  n0.$evtclick = () => (show.value = !show.value)
-  return [n0, n1]
+  const n0 = _createFor(() => (window.ITEM_COUNT), (_for_item0) => {
+    const n4 = t0()
+    const n2 = _child(n4)
+    const n3 = _next(n2)
+    n2.$evtinput = $event => (msg.value = $event.target.value)
+    const x3 = _txt(n3)
+    _renderEffect(() => {
+      const _msg = msg.value
+      _setValue(n2, _msg)
+      _setText(x3, _toDisplayString(_msg))
+    })
+    return n4
+  }, undefined, 4)
+  return n0
 
 }
 
