@@ -1,23 +1,26 @@
 /* Analyzed bindings: {
   "Comp": "setup-const",
   "ref": "setup-const",
-  "msg": "setup-ref"
+  "msg": "setup-ref",
+  "show": "setup-ref"
 } */
 import {
   ref,
+  setInsertionState as _setInsertionState,
   txt as _txt,
   toDisplayString as _toDisplayString,
   setText as _setText,
   renderEffect as _renderEffect,
   createComponent as _createComponent,
   createFor as _createFor,
-  template as _template,
   createIf as _createIf,
-  delegateEvents as _delegateEvents
+  delegateEvents as _delegateEvents,
+  template as _template,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js"
 
 const t0 = _template("<button>toggle</button>")
 const t1 = _template("<span> </span>")
+const t2 = _template("<div></div>")
 _delegateEvents("click")
 import Comp from './VaporChild.js';
 
@@ -32,7 +35,9 @@ const show = ref(true)
 
   const n0 = t0()
   const n1 = _createIf(() => (show.value), () => {
-    const n3 = _createFor(() => window.ITEM_COUNT, (_for_item0) => {
+    const n3 = _createFor(() => (window.ITEM_COUNT), (_for_item0) => {
+      const n7 = t2()
+      _setInsertionState(n7, null)
       const n6 = _createComponent(Comp, { item: () => (_for_item0.value) }, {
         "default": () => {
           const n5 = t1()
@@ -41,8 +46,8 @@ const show = ref(true)
           return n5
         }
       })
-      return n6
-    }, undefined, 6)
+      return n7
+    }, undefined, 4)
     return n3
   })
   n0.$evtclick = () => (show.value = !show.value)

@@ -19,7 +19,6 @@ import {
   applyTextModel as _applyTextModel,
   template as _template,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js"
-
 const t0 = _template("<h1> </h1>")
 const t1 = _template("<input>")
 const t2 = _template("<div> </div>")

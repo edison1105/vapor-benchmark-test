@@ -16,9 +16,10 @@ import {
   renderList as _renderList,
   Fragment as _Fragment,
   renderSlot as _renderSlot,
-} from "../libs/vue.runtime-with-vapor.esm-browser.prod.js"
+} from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
 
-const _hoisted_1 = { key: 0 };
+const _hoisted_1 = { key: 0 }
+
 
 const __sfc__ = {
   __name: 'Comp',
