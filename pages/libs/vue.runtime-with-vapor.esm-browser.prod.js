@@ -11031,85 +11031,6 @@ const compile = (_template) => {
   return NOOP;
 };
 
-const hydrationStateCache = /* @__PURE__ */ new WeakMap();
-let insertionParent;
-let insertionAnchor;
-function setInsertionState(parent, anchor) {
-  insertionParent = parent;
-  if (anchor !== void 0) {
-    if (isHydrating) {
-      insertionAnchor = anchor;
-      initializeHydrationState(parent);
-    } else {
-      insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
-      cacheTemplateChildren(parent);
-    }
-  } else {
-    insertionAnchor = void 0;
-  }
-}
-function initializeHydrationState(parent) {
-  if (!hydrationStateCache.has(parent)) {
-    const childNodes = parent.childNodes;
-    const len = childNodes.length;
-    const logicalChildren = new Array(len);
-    let index = 0;
-    for (let i = 0; i < len; i++) {
-      const n = childNodes[i];
-      if (n.nodeType === 8) {
-        const data = n.data;
-        if (data === "[") {
-          n.$idx = index;
-          logicalChildren[index++] = n;
-          let depth = 1;
-          let j = i + 1;
-          for (; j < len; j++) {
-            const c = childNodes[j];
-            if (c.nodeType === 8) {
-              const d = c.data;
-              if (d === "[") depth++;
-              else if (d === "]") {
-                depth--;
-                if (depth === 0) break;
-              }
-            }
-          }
-          i = j;
-          continue;
-        }
-      }
-      n.$idx = index;
-      logicalChildren[index++] = n;
-    }
-    logicalChildren.length = index;
-    hydrationStateCache.set(parent, {
-      logicalChildren,
-      prevDynamicCount: 0,
-      uniqueAnchorCount: 0,
-      appendAnchor: null
-    });
-  }
-}
-function cacheTemplateChildren(parent) {
-  if (!parent.$children) {
-    const nodes = parent.childNodes;
-    const len = nodes.length;
-    const children = new Array(len);
-    for (let i = 0; i < len; i++) {
-      const node = nodes[i];
-      node.$idx = i;
-      children[i] = node;
-    }
-    parent.$children = children;
-  }
-}
-function resetInsertionState() {
-  insertionParent = insertionAnchor = void 0;
-}
-function getHydrationState(parent) {
-  return hydrationStateCache.get(parent);
-}
-
 function createElement(tagName) {
   return document.createElement(tagName);
 }
@@ -11150,10 +11071,17 @@ function _nthChild(node, i) {
 }
 // @__NO_SIDE_EFFECTS__
 function __nthChild(node, i) {
-  const hydrationState = getHydrationState(node);
-  if (hydrationState) {
-    const { prevDynamicCount, uniqueAnchorCount, logicalChildren } = hydrationState;
-    return logicalChildren[prevDynamicCount - uniqueAnchorCount + i];
+  const parent = node;
+  if (parent.$idxMap) {
+    const {
+      $prevDynamicCount: prevDynamicCount = 0,
+      $anchorCount: anchorCount = 0,
+      $idxMap: idxMap,
+      $indexOffset: indexOffset = 0
+    } = parent;
+    const logicalIndex = prevDynamicCount - anchorCount + i;
+    const realIndex = idxMap[logicalIndex] + indexOffset;
+    return node.childNodes[realIndex];
   }
   return node.childNodes[i];
 }
@@ -11164,11 +11092,13 @@ function _next(node) {
 }
 // @__NO_SIDE_EFFECTS__
 function __next(node) {
-  const hydrationState = getHydrationState(node.parentNode);
-  if (hydrationState) {
-    const { logicalChildren } = hydrationState;
+  const parent = node.parentNode;
+  if (parent.$idxMap) {
+    const { $idxMap: idxMap, $indexOffset: indexOffset = 0 } = parent;
     const { $idx, $uc: usedCount = 0 } = node;
-    return logicalChildren[$idx + usedCount + 1];
+    const logicalIndex = $idx + usedCount + 1;
+    const realIndex = idxMap[logicalIndex] + indexOffset;
+    return node.parentNode.childNodes[realIndex];
   }
   return node.nextSibling;
 }
@@ -11201,6 +11131,136 @@ function disableHydrationNodeLookup() {
   nthChild.impl = _nthChild;
 }
 
+let t;
+let currentTemplateFn = void 0;
+function resetTemplateFn() {
+  currentTemplateFn = void 0;
+}
+/*! #__NO_SIDE_EFFECTS__ */
+// @__NO_SIDE_EFFECTS__
+function template(html, root) {
+  let node;
+  const fn = () => {
+    if (isHydrating) {
+      currentTemplateFn = fn;
+      const adopted = adoptTemplate(currentHydrationNode, html);
+      if (root) adopted.$root = true;
+      return adopted;
+    }
+    if (html[0] !== "<") {
+      return createTextNode(html);
+    }
+    if (!node) {
+      t = t || createElement("template");
+      t.innerHTML = html;
+      node = child(t.content);
+    }
+    const ret = node.cloneNode(true);
+    if (root) ret.$root = true;
+    return ret;
+  };
+  return fn;
+}
+
+let insertionParent;
+let insertionAnchor;
+function setInsertionState(parent, anchor) {
+  insertionParent = parent;
+  if (anchor !== void 0) {
+    if (isHydrating) {
+      insertionAnchor = anchor;
+      initializeHydrationState(parent);
+      resetTemplateFn();
+    } else {
+      insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
+      cacheTemplateChildren(parent);
+    }
+  } else {
+    insertionAnchor = void 0;
+  }
+}
+function initializeHydrationState(parent) {
+  if (!parent.$idxMap) {
+    const childNodes = parent.childNodes;
+    const len = childNodes.length;
+    if (len === 1 || len === 3 && isComment(childNodes[0], "[") && isComment(childNodes[2], "]")) {
+      insertionAnchor = void 0;
+      return;
+    }
+    if (currentTemplateFn) {
+      if (currentTemplateFn.$idxMap) {
+        const idxMap = parent.$idxMap = currentTemplateFn.$idxMap;
+        for (let i = 0; i < idxMap.length; i++) {
+          childNodes[idxMap[i]].$idx = i;
+        }
+      } else {
+        parent.$idxMap = currentTemplateFn.$idxMap = buildLogicalIndexMap(
+          len,
+          childNodes
+        );
+      }
+    } else {
+      parent.$idxMap = buildLogicalIndexMap(len, childNodes);
+    }
+    parent.$prevDynamicCount = 0;
+    parent.$anchorCount = 0;
+    parent.$appendIndex = null;
+    parent.$indexOffset = 0;
+  }
+}
+function buildLogicalIndexMap(len, childNodes) {
+  const idxMap = new Array();
+  let logicalIndex = 0;
+  for (let i = 0; i < len; i++) {
+    const n = childNodes[i];
+    n.$idx = logicalIndex;
+    if (n.nodeType === 8) {
+      const data = n.data;
+      if (data === "[") {
+        idxMap[logicalIndex++] = i;
+        let depth = 1;
+        let j = i + 1;
+        for (; j < len; j++) {
+          const c = childNodes[j];
+          if (c.nodeType === 8) {
+            const d = c.data;
+            if (d === "[") depth++;
+            else if (d === "]") {
+              depth--;
+              if (depth === 0) break;
+            }
+          }
+        }
+        i = j;
+        continue;
+      }
+    }
+    idxMap[logicalIndex++] = i;
+  }
+  return idxMap;
+}
+function cacheTemplateChildren(parent) {
+  if (!parent.$children) {
+    const nodes = parent.childNodes;
+    const len = nodes.length;
+    const children = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const node = nodes[i];
+      node.$idx = i;
+      children[i] = node;
+    }
+    parent.$children = children;
+  }
+}
+function resetInsertionState() {
+  insertionParent = insertionAnchor = void 0;
+}
+function incrementIndexOffset(parent) {
+  if (parent.$indexOffset !== void 0) {
+    parent.$indexOffset++;
+  }
+}
+
 const isHydratingStack = [];
 let isHydrating = false;
 let currentHydrationNode = null;
@@ -11211,9 +11271,14 @@ function performHydration(fn, setup, cleanup) {
     locateHydrationNode = locateHydrationNodeImpl;
     Comment.prototype.$fe = void 0;
     Node.prototype.$pns = void 0;
-    Node.prototype.$idx = void 0;
     Node.prototype.$uc = void 0;
+    Node.prototype.$idx = void 0;
     Node.prototype.$children = void 0;
+    Node.prototype.$idxMap = void 0;
+    Node.prototype.$prevDynamicCount = void 0;
+    Node.prototype.$anchorCount = void 0;
+    Node.prototype.$appendIndex = void 0;
+    Node.prototype.$indexOffset = void 0;
     isOptimized$1 = true;
   }
   enableHydrationNodeLookup();
@@ -11259,6 +11324,7 @@ function adoptTemplateImpl(node, template) {
       node = node.nextSibling;
       if (template.trim() === "" && isComment(node, "]") && isComment(node.previousSibling, "[")) {
         node = node.parentNode.insertBefore(createTextNode(" "), node);
+        incrementIndexOffset(node.parentNode);
         break;
       }
     }
@@ -11268,38 +11334,46 @@ function adoptTemplateImpl(node, template) {
 }
 function locateHydrationNodeImpl() {
   let node;
-  if (insertionAnchor !== void 0) {
-    const hydrationState = getHydrationState(insertionParent);
-    const { prevDynamicCount, logicalChildren, appendAnchor } = hydrationState;
+  let idxMap;
+  if (insertionAnchor !== void 0 && (idxMap = insertionParent.$idxMap)) {
+    const {
+      $prevDynamicCount: prevDynamicCount = 0,
+      $appendIndex: appendIndex,
+      $indexOffset: indexOffset = 0,
+      $anchorCount: anchorCount = 0
+    } = insertionParent;
     if (insertionAnchor === 0) {
-      node = logicalChildren[prevDynamicCount];
+      const realIndex = idxMap[prevDynamicCount] + indexOffset;
+      node = insertionParent.childNodes[realIndex];
     } else if (insertionAnchor instanceof Node) {
       let { $idx, $uc: usedCount } = insertionAnchor;
       if (usedCount !== void 0) {
-        node = logicalChildren[$idx + usedCount + 1];
+        const realIndex = idxMap[$idx + usedCount + 1] + indexOffset;
+        node = insertionParent.childNodes[realIndex];
         usedCount++;
       } else {
         node = insertionAnchor;
-        hydrationState.uniqueAnchorCount++;
+        insertionParent.$anchorCount = anchorCount + 1;
         usedCount = 0;
       }
       insertionAnchor.$uc = usedCount;
     } else {
-      if (appendAnchor) {
-        node = logicalChildren[appendAnchor.$idx + 1];
+      let realIndex;
+      if (appendIndex !== null && appendIndex !== void 0) {
+        realIndex = idxMap[appendIndex + 1] + indexOffset;
+        node = insertionParent.childNodes[realIndex];
       } else {
-        node = // insertionAnchor is null, indicates no previous static nodes
-        // use the first child as hydration node
-        insertionAnchor === null ? logicalChildren[0] : (
-          // insertionAnchor is a number > 0
-          // indicates how many static nodes precede the node to append
-          // use it as index to locate the hydration node
-          logicalChildren[prevDynamicCount + insertionAnchor]
-        );
+        if (insertionAnchor === null) {
+          realIndex = idxMap[0] + indexOffset;
+          node = insertionParent.childNodes[realIndex];
+        } else {
+          realIndex = idxMap[prevDynamicCount + insertionAnchor] + indexOffset;
+          node = insertionParent.childNodes[realIndex];
+        }
       }
-      hydrationState.appendAnchor = node;
+      insertionParent.$appendIndex = node.$idx;
     }
-    hydrationState.prevDynamicCount++;
+    insertionParent.$prevDynamicCount = prevDynamicCount + 1;
   } else {
     node = currentHydrationNode;
     if (insertionParent && (!node || node.parentNode !== insertionParent)) {
@@ -11638,6 +11712,7 @@ class DynamicFragment extends VaporFragment {
         this.anchor = createComment(this.anchorLabel),
         nextSibling
       );
+      incrementIndexOffset(parentNode);
       advanceHydrationNode(this.anchor);
     };
     if (isHydrating) {
@@ -11831,7 +11906,7 @@ function normalizeAnchor(node) {
   if (node && node instanceof Node) {
     return node;
   } else if (isArray(node)) {
-    return normalizeAnchor(node[node.length - 1]);
+    return normalizeAnchor(node[0]);
   } else if (isVaporComponent(node)) {
     return normalizeAnchor(node.block);
   } else {
@@ -12044,6 +12119,12 @@ function setValue(el, value) {
   }
 }
 function setText(el, value) {
+  if (isHydrating) {
+    if (el.nodeValue == value) {
+      el.$txt = value
+      return
+    }
+  }
   if (el.$txt !== value) {
     el.nodeValue = el.$txt = value;
   }
@@ -12105,6 +12186,8 @@ function optimizePropertyLookup() {
   proto.$transition = void 0;
   proto.$key = void 0;
   proto.$evtclick = void 0;
+  proto.$children = void 0;
+  proto.$idx = void 0;
   proto.$root = false;
   proto.$html = proto.$txt = proto.$cls = proto.$sty = Text.prototype.$txt = "";
 }
@@ -13174,10 +13257,8 @@ function createComponentWithFallback(comp, rawProps, rawSlots, isSingleRoot, onc
 }
 function mountComponent(instance, parent, anchor) {
   if (instance.bm) invokeArrayFns(instance.bm);
-  if (!isHydrating) {
-    insert(instance.block, parent, anchor);
-    setComponentScopeId(instance);
-  }
+  insert(instance.block, parent, anchor);
+  if (!isHydrating) setComponentScopeId(instance);
   if (instance.m) queuePostFlushCb(() => invokeArrayFns(instance.m));
   instance.isMounted = true;
 }
@@ -13382,31 +13463,6 @@ function createInnerComp(comp, parent, frag) {
   );
   frag && frag.setRef && frag.setRef(instance);
   return instance;
-}
-
-let t;
-/*! #__NO_SIDE_EFFECTS__ */
-// @__NO_SIDE_EFFECTS__
-function template(html, root) {
-  let node;
-  return () => {
-    if (isHydrating) {
-      const adopted = adoptTemplate(currentHydrationNode, html);
-      if (root) adopted.$root = true;
-      return adopted;
-    }
-    if (html[0] !== "<") {
-      return createTextNode(html);
-    }
-    if (!node) {
-      t = t || createElement("template");
-      t.innerHTML = html;
-      node = child(t.content);
-    }
-    const ret = node.cloneNode(true);
-    if (root) ret.$root = true;
-    return ret;
-  };
 }
 
 function createIf(condition, b1, b2, once) {
