@@ -178,8 +178,24 @@ function normalizeProps(props) {
 
 const specialBooleanAttrs = `itemscope,allowfullscreen,formnovalidate,ismap,nomodule,novalidate,readonly`;
 const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
+const isBooleanAttr = /* @__PURE__ */ makeMap(
+  specialBooleanAttrs + `,async,autofocus,autoplay,controls,default,defer,disabled,hidden,inert,loop,open,required,reversed,scoped,seamless,checked,muted,multiple,selected`
+);
 function includeBooleanAttr(value) {
   return !!value || value === "";
+}
+const isKnownHtmlAttr = /* @__PURE__ */ makeMap(
+  `accept,accept-charset,accesskey,action,align,allow,alt,async,autocapitalize,autocomplete,autofocus,autoplay,background,bgcolor,border,buffered,capture,challenge,charset,checked,cite,class,code,codebase,color,cols,colspan,content,contenteditable,contextmenu,controls,coords,crossorigin,csp,data,datetime,decoding,default,defer,dir,dirname,disabled,download,draggable,dropzone,enctype,enterkeyhint,for,form,formaction,formenctype,formmethod,formnovalidate,formtarget,headers,height,hidden,high,href,hreflang,http-equiv,icon,id,importance,inert,integrity,ismap,itemprop,keytype,kind,label,lang,language,loading,list,loop,low,manifest,max,maxlength,minlength,media,min,multiple,muted,name,novalidate,open,optimum,pattern,ping,placeholder,poster,preload,radiogroup,readonly,referrerpolicy,rel,required,reversed,rows,rowspan,sandbox,scope,scoped,selected,shape,size,sizes,slot,span,spellcheck,src,srcdoc,srclang,srcset,start,step,style,summary,tabindex,target,title,translate,type,usemap,value,width,wrap`
+);
+const isKnownSvgAttr = /* @__PURE__ */ makeMap(
+  `xmlns,accent-height,accumulate,additive,alignment-baseline,alphabetic,amplitude,arabic-form,ascent,attributeName,attributeType,azimuth,baseFrequency,baseline-shift,baseProfile,bbox,begin,bias,by,calcMode,cap-height,class,clip,clipPathUnits,clip-path,clip-rule,color,color-interpolation,color-interpolation-filters,color-profile,color-rendering,contentScriptType,contentStyleType,crossorigin,cursor,cx,cy,d,decelerate,descent,diffuseConstant,direction,display,divisor,dominant-baseline,dur,dx,dy,edgeMode,elevation,enable-background,end,exponent,fill,fill-opacity,fill-rule,filter,filterRes,filterUnits,flood-color,flood-opacity,font-family,font-size,font-size-adjust,font-stretch,font-style,font-variant,font-weight,format,from,fr,fx,fy,g1,g2,glyph-name,glyph-orientation-horizontal,glyph-orientation-vertical,glyphRef,gradientTransform,gradientUnits,hanging,height,href,hreflang,horiz-adv-x,horiz-origin-x,id,ideographic,image-rendering,in,in2,intercept,k,k1,k2,k3,k4,kernelMatrix,kernelUnitLength,kerning,keyPoints,keySplines,keyTimes,lang,lengthAdjust,letter-spacing,lighting-color,limitingConeAngle,local,marker-end,marker-mid,marker-start,markerHeight,markerUnits,markerWidth,mask,maskContentUnits,maskUnits,mathematical,max,media,method,min,mode,name,numOctaves,offset,opacity,operator,order,orient,orientation,origin,overflow,overline-position,overline-thickness,panose-1,paint-order,path,pathLength,patternContentUnits,patternTransform,patternUnits,ping,pointer-events,points,pointsAtX,pointsAtY,pointsAtZ,preserveAlpha,preserveAspectRatio,primitiveUnits,r,radius,referrerPolicy,refX,refY,rel,rendering-intent,repeatCount,repeatDur,requiredExtensions,requiredFeatures,restart,result,rotate,rx,ry,scale,seed,shape-rendering,slope,spacing,specularConstant,specularExponent,speed,spreadMethod,startOffset,stdDeviation,stemh,stemv,stitchTiles,stop-color,stop-opacity,strikethrough-position,strikethrough-thickness,string,stroke,stroke-dasharray,stroke-dashoffset,stroke-linecap,stroke-linejoin,stroke-miterlimit,stroke-opacity,stroke-width,style,surfaceScale,systemLanguage,tabindex,tableValues,target,targetX,targetY,text-anchor,text-decoration,text-rendering,textLength,to,transform,transform-origin,type,u1,u2,underline-position,underline-thickness,unicode,unicode-bidi,unicode-range,units-per-em,v-alphabetic,v-hanging,v-ideographic,v-mathematical,values,vector-effect,version,vert-adv-y,vert-origin-x,vert-origin-y,viewBox,viewTarget,visibility,width,widths,word-spacing,writing-mode,x,x-height,x1,x2,xChannelSelector,xlink:actuate,xlink:arcrole,xlink:href,xlink:role,xlink:show,xlink:title,xlink:type,xmlns:xlink,xml:base,xml:lang,xml:space,y,y1,y2,yChannelSelector,z,zoomAndPan`
+);
+function isRenderableAttrValue(value) {
+  if (value == null) {
+    return false;
+  }
+  const type = typeof value;
+  return type === "string" || type === "number" || type === "boolean";
 }
 function shouldSetAsAttr(tagName, key) {
   if (key === "spellcheck" || key === "draggable" || key === "translate" || key === "autocorrect") {
@@ -3431,13 +3447,13 @@ function createCanSetSetupRefChecker(setupState) {
   };
 }
 
-let hasLoggedMismatchError = false;
-const logMismatchError = () => {
-  if (hasLoggedMismatchError) {
+let hasLoggedMismatchError$1 = false;
+const logMismatchError$1 = () => {
+  if (hasLoggedMismatchError$1) {
     return;
   }
   console.error("Hydration completed but contains mismatches.");
-  hasLoggedMismatchError = true;
+  hasLoggedMismatchError$1 = true;
 };
 const isSVGContainer = (container) => container.namespaceURI.includes("svg") && container.tagName !== "foreignObject";
 const isMathMLContainer = (container) => container.namespaceURI.includes("MathML");
@@ -3503,7 +3519,7 @@ function createHydrationFunctions(rendererInternals) {
           }
         } else {
           if (node.data !== vnode.children) {
-            logMismatchError();
+            logMismatchError$1();
             node.data = vnode.children;
           }
           nextNode = nextSibling(node);
@@ -3688,8 +3704,8 @@ function createHydrationFunctions(rendererInternals) {
           optimized
         );
         while (next) {
-          if (!isMismatchAllowed(el, 1 /* CHILDREN */)) {
-            logMismatchError();
+          if (!isMismatchAllowed(el, 1)) {
+            logMismatchError$1();
           }
           const cur = next;
           next = next.nextSibling;
@@ -3701,8 +3717,8 @@ function createHydrationFunctions(rendererInternals) {
           clientText = clientText.slice(1);
         }
         if (el.textContent !== clientText) {
-          if (!isMismatchAllowed(el, 0 /* TEXT */)) {
-            logMismatchError();
+          if (!isMismatchAllowed(el, 0)) {
+            logMismatchError$1();
           }
           el.textContent = vnode.children;
         }
@@ -3781,8 +3797,8 @@ function createHydrationFunctions(rendererInternals) {
       } else if (isText && !vnode.children) {
         insert(vnode.el = createText(""), container);
       } else {
-        if (!isMismatchAllowed(container, 1 /* CHILDREN */)) {
-          logMismatchError();
+        if (!isMismatchAllowed(container, 1)) {
+          logMismatchError$1();
         }
         patch(
           null,
@@ -3816,14 +3832,14 @@ function createHydrationFunctions(rendererInternals) {
     if (next && isComment$1(next) && next.data === "]") {
       return nextSibling(vnode.anchor = next);
     } else {
-      logMismatchError();
+      logMismatchError$1();
       insert(vnode.anchor = createComment(`]`), container, next);
       return next;
     }
   };
   const handleMismatch = (node, vnode, parentComponent, parentSuspense, slotScopeIds, isFragment) => {
-    if (!isMismatchAllowed(node.parentElement, 1 /* CHILDREN */)) {
-      logMismatchError();
+    if (!isMismatchAllowed(node.parentElement, 1)) {
+      logMismatchError$1();
     }
     vnode.el = null;
     if (isFragment) {
@@ -3891,16 +3907,105 @@ function createHydrationFunctions(rendererInternals) {
 const isTemplateNode = (node) => {
   return node.nodeType === 1 && node.tagName === "TEMPLATE";
 };
+function getAttributeMismatch(el, key, clientValue) {
+  let actual;
+  let expected;
+  if (isBooleanAttr(key)) {
+    actual = el.hasAttribute(key);
+    expected = includeBooleanAttr(clientValue);
+  } else if (clientValue == null) {
+    actual = el.hasAttribute(key);
+    expected = false;
+  } else {
+    if (el.hasAttribute(key)) {
+      actual = el.getAttribute(key);
+    } else if (key === "value" && el.tagName === "TEXTAREA") {
+      actual = el.value;
+    } else {
+      actual = false;
+    }
+    expected = isRenderableAttrValue(clientValue) ? String(clientValue) : false;
+  }
+  return { actual, expected };
+}
+function isValidHtmlOrSvgAttribute(el, key) {
+  return el instanceof SVGElement && isKnownSvgAttr(key) || el instanceof HTMLElement && (isBooleanAttr(key) || isKnownHtmlAttr(key));
+}
+function warnPropMismatch(el, mismatchKey, mismatchType, actual, expected) {
+  if (mismatchType != null && !isMismatchAllowed(el, mismatchType)) {
+    const format = (v) => v === false ? `(not rendered)` : `${mismatchKey}="${v}"`;
+    const preSegment = `Hydration ${MismatchTypeString[mismatchType]} mismatch on`;
+    const postSegment = `
+  - rendered on server: ${format(actual)}
+  - expected on client: ${format(expected)}
+  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.
+  You should fix the source of the mismatch.`;
+    {
+      warn$2(preSegment, el, postSegment);
+    }
+    return true;
+  }
+  return false;
+}
+function toClassSet(str) {
+  return new Set(str.trim().split(/\s+/));
+}
+function isSetEqual(a, b) {
+  if (a.size !== b.size) {
+    return false;
+  }
+  for (const s of a) {
+    if (!b.has(s)) {
+      return false;
+    }
+  }
+  return true;
+}
+function toStyleMap(str) {
+  const styleMap = /* @__PURE__ */ new Map();
+  for (const item of str.split(";")) {
+    let [key, value] = item.split(":");
+    key = key.trim();
+    value = value && value.trim();
+    if (key && value) {
+      styleMap.set(key, value);
+    }
+  }
+  return styleMap;
+}
+function isMapEqual(a, b) {
+  if (a.size !== b.size) {
+    return false;
+  }
+  for (const [key, value] of a) {
+    if (value !== b.get(key)) {
+      return false;
+    }
+  }
+  return true;
+}
 const allowMismatchAttr = "data-allow-mismatch";
+const MismatchTypes = {
+  "TEXT": 0,
+  "0": "TEXT",
+  "CHILDREN": 1,
+  "1": "CHILDREN",
+  "CLASS": 2,
+  "2": "CLASS",
+  "STYLE": 3,
+  "3": "STYLE",
+  "ATTRIBUTE": 4,
+  "4": "ATTRIBUTE"
+};
 const MismatchTypeString = {
-  [0 /* TEXT */]: "text",
-  [1 /* CHILDREN */]: "children",
-  [2 /* CLASS */]: "class",
-  [3 /* STYLE */]: "style",
-  [4 /* ATTRIBUTE */]: "attribute"
+  [0]: "text",
+  [1]: "children",
+  [2]: "class",
+  [3]: "style",
+  [4]: "attribute"
 };
 function isMismatchAllowed(el, allowedType) {
-  if (allowedType === 0 /* TEXT */ || allowedType === 1 /* CHILDREN */) {
+  if (allowedType === 0 || allowedType === 1) {
     while (el && !el.hasAttribute(allowMismatchAttr)) {
       el = el.parentElement;
     }
@@ -3912,7 +4017,7 @@ function isMismatchAllowed(el, allowedType) {
     return true;
   } else {
     const list = allowedAttr.split(",");
-    if (allowedType === 0 /* TEXT */ && list.includes("children")) {
+    if (allowedType === 0 && list.includes("children")) {
       return true;
     }
     return list.includes(MismatchTypeString[allowedType]);
@@ -11046,12 +11151,16 @@ function createComment(data) {
 function querySelector(selectors) {
   return document.querySelector(selectors);
 }
+/*! @__NO_SIDE_EFFECTS__ */
+// @__NO_SIDE_EFFECTS__
+function parentNode(node) {
+  return node.parentNode;
+}
 const _txt = _child;
 const __txt = /* @__NO_SIDE_EFFECTS__ */ (node) => {
   let n = node.firstChild;
   if (!n) {
-    node.textContent = " ";
-    return node.firstChild;
+    return node.appendChild(/* @__PURE__ */ createTextNode());
   }
   return n;
 };
@@ -11243,6 +11352,7 @@ function cacheTemplateChildren(parent) {
   if (!parent.$children) {
     const nodes = parent.childNodes;
     const len = nodes.length;
+    if (len === 0) return;
     const children = new Array(len);
     for (let i = 0; i < len; i++) {
       const node = nodes[i];
@@ -11323,11 +11433,20 @@ function adoptTemplateImpl(node, template) {
     while (node.nodeType === 8) {
       node = node.nextSibling;
       if (template.trim() === "" && isComment(node, "]") && isComment(node.previousSibling, "[")) {
-        node = node.parentNode.insertBefore(createTextNode(" "), node);
-        incrementIndexOffset(node.parentNode);
+        const parent = parentNode(node);
+        node = parent.insertBefore(createTextNode(), node);
+        incrementIndexOffset(parent);
         break;
       }
     }
+  }
+  const type = node.nodeType;
+  if (
+    // comment node
+    type === 8 && !template.startsWith("<!") || // element node
+    type === 1 && !template.startsWith(`<` + node.tagName.toLowerCase())
+  ) {
+    node = handleMismatch(node, template);
   }
   advanceHydrationNode(node);
   return node;
@@ -11383,6 +11502,24 @@ function locateHydrationNodeImpl() {
   resetInsertionState();
   currentHydrationNode = node;
 }
+function locateEndAnchor(node, open = "[", close = "]") {
+  if (node.$fe) {
+    return node.$fe;
+  }
+  const stack = [node];
+  while ((node = node.nextSibling) && stack.length > 0) {
+    if (node.nodeType === 8) {
+      if (node.data === open) {
+        stack.push(node);
+      } else if (node.data === close) {
+        const matchingOpen = stack.pop();
+        matchingOpen.$fe = node;
+        if (stack.length === 0) return node;
+      }
+    }
+  }
+  return null;
+}
 function locateFragmentEndAnchor(label = "]") {
   let node = currentHydrationNode;
   while (node) {
@@ -11391,6 +11528,45 @@ function locateFragmentEndAnchor(label = "]") {
   }
   return null;
 }
+function handleMismatch(node, template) {
+  if (!isMismatchAllowed(node.parentElement, 1)) {
+    logMismatchError();
+  }
+  if (isComment(node, "[")) {
+    const end = locateEndAnchor(node);
+    while (true) {
+      const next2 = _next(node);
+      if (next2 && next2 !== end) {
+        remove(next2, parentNode(node));
+      } else {
+        break;
+      }
+    }
+  }
+  const next = _next(node);
+  const container = parentNode(node);
+  remove(node, container);
+  if (template[0] !== "<") {
+    return container.insertBefore(createTextNode(template), next);
+  }
+  const t = createElement("template");
+  t.innerHTML = template;
+  const newNode = child(t.content).cloneNode(true);
+  newNode.innerHTML = node.innerHTML;
+  Array.from(node.attributes).forEach((attr) => {
+    newNode.setAttribute(attr.name, attr.value);
+  });
+  container.insertBefore(newNode, next);
+  return newNode;
+}
+let hasLoggedMismatchError = false;
+const logMismatchError = () => {
+  if (hasLoggedMismatchError) {
+    return;
+  }
+  console.error("Hydration completed but contains mismatches.");
+  hasLoggedMismatchError = true;
+};
 
 class RenderEffect extends ReactiveEffect {
   constructor(render) {
@@ -12069,14 +12245,18 @@ function setDOMProp(el, key, value) {
 function setClass(el, value) {
   if (el.$root) {
     setClassIncremental(el, value);
-  } else if ((value = normalizeClass(value)) !== el.$cls) {
-    el.className = el.$cls = value;
+  } else {
+    value = normalizeClass(value);
+    if (value !== el.$cls) {
+      el.className = el.$cls = value;
+    }
   }
 }
 function setClassIncremental(el, value) {
   const cacheKey = `$clsi${isApplyingFallthroughProps ? "$" : ""}`;
+  const normalizedValue = normalizeClass(value);
   const prev = el[cacheKey];
-  if ((value = el[cacheKey] = normalizeClass(value)) !== prev) {
+  if ((value = el[cacheKey] = normalizedValue) !== prev) {
     const nextList = value.split(/\s+/);
     if (value) {
       el.classList.add(...nextList);
@@ -12092,17 +12272,14 @@ function setStyle(el, value) {
   if (el.$root) {
     setStyleIncremental(el, value);
   } else {
-    const prev = el.$sty;
-    value = el.$sty = normalizeStyle(value);
-    patchStyle(el, prev, value);
+    const normalizedValue = normalizeStyle(value);
+    patchStyle(el, el.$sty, el.$sty = normalizedValue);
   }
 }
 function setStyleIncremental(el, value) {
   const cacheKey = `$styi${isApplyingFallthroughProps ? "$" : ""}`;
-  const prev = el[cacheKey];
-  value = el[cacheKey] = isString(value) ? parseStringStyle(value) : normalizeStyle(value);
-  patchStyle(el, prev, value);
-  return value;
+  const normalizedValue = isString(value) ? parseStringStyle(value) : normalizeStyle(value);
+  patchStyle(el, el[cacheKey], el[cacheKey] = normalizedValue);
 }
 function setValue(el, value) {
   if (!isApplyingFallthroughProps && el.$root && hasFallthroughKey("value")) {
@@ -12120,22 +12297,44 @@ function setValue(el, value) {
 }
 function setText(el, value) {
   if (isHydrating) {
-    if (el.nodeValue == value) {
-      el.$txt = value
-      return
+    const clientText = getClientText(el.parentNode, value);
+    if (el.nodeValue == clientText) {
+      el.$txt = clientText;
+      return;
     }
+    logMismatchError();
   }
   if (el.$txt !== value) {
     el.nodeValue = el.$txt = value;
   }
 }
-function setElementText(el, value, isConverted = false) {
-  if (el.$txt !== (value = isConverted ? value : toDisplayString(value))) {
+function setElementText(el, value) {
+  value = toDisplayString(value);
+  if (isHydrating) {
+    let clientText = getClientText(el, value);
+    if (el.textContent === clientText) {
+      el.$txt = clientText;
+      return;
+    }
+    if (!isMismatchAllowed(el, 0)) {
+      logMismatchError();
+    }
+  }
+  if (el.$txt !== value) {
     el.textContent = el.$txt = value;
   }
 }
 function setHtml(el, value) {
   value = value == null ? "" : value;
+  if (isHydrating) {
+    if (el.innerHTML === value) {
+      el.$html = value;
+      return;
+    }
+    if (!isMismatchAllowed(el, 1)) {
+      logMismatchError();
+    }
+  }
   if (el.$html !== value) {
     el.innerHTML = el.$html = value;
   }
@@ -12190,6 +12389,12 @@ function optimizePropertyLookup() {
   proto.$idx = void 0;
   proto.$root = false;
   proto.$html = proto.$txt = proto.$cls = proto.$sty = Text.prototype.$txt = "";
+}
+function getClientText(el, value) {
+  if (value[0] === "\n" && (el.tagName === "PRE" || el.tagName === "TEXTAREA")) {
+    value = value.slice(1);
+  }
+  return value;
 }
 
 const interopKey = Symbol(`interop`);
@@ -14086,9 +14291,11 @@ function setDisplay(target, value) {
         }
       }
     } else {
-      el.style.display = value ? el[vShowOriginalDisplay] : "none";
+      {
+        el.style.display = value ? el[vShowOriginalDisplay] : "none";
+      }
+      el[vShowHidden] = !value;
     }
-    el[vShowHidden] = !value;
   }
 }
 
@@ -14310,4 +14517,4 @@ function getFirstConnectedChild(children) {
   }
 }
 
-export { BaseTransition, BaseTransitionPropsValidators, Comment$1 as Comment, DeprecationTypes, EffectScope, ErrorCodes, ErrorTypeStrings, Fragment, KeepAlive, MoveType, ReactiveEffect, Static, Suspense, Teleport, Text$1 as Text, TrackOpTypes, Transition, TransitionGroup, TransitionPropsValidators, TriggerOpTypes, VaporFragment, VaporTeleportImpl as VaporTeleport, VaporTransition, VaporTransitionGroup, VueElement, addTransitionClass, applyCheckboxModel, applyDynamicModel, applyRadioModel, applySelectModel, applyTextModel, applyVShow, assertNumber, baseApplyTranslation, baseEmit, baseNormalizePropsOptions, baseResolveTransitionHooks, callPendingCbs, callWithAsyncErrorHandling, callWithErrorHandling, camelize, capitalize, checkTransitionMode, child, cloneVNode, compatUtils, compile, computed, createApp, createAppAPI, createAsyncComponentContext, createBlock, createCanSetSetupRefChecker, createCommentVNode, createComponent, createComponentWithFallback, createDynamicComponent, createElementBlock, createBaseVNode as createElementVNode, createFor, createForSlots, createHydrationRenderer, createIf, createInternalObject, createKeyedFragment, createPropsRestProxy, createRenderer, createSSRApp, createSlot, createSlots, createStaticVNode, createTemplateRefSetter, createTextNode, createTextVNode, createVNode, createVaporApp, createVaporSSRApp, currentInstance, customRef, defineAsyncComponent, defineComponent, defineCustomElement, defineEmits, defineExpose, defineModel, defineOptions, defineProps, defineSSRCustomElement, defineSlots, defineVaporAsyncComponent, defineVaporComponent, delegate, delegateEvents, devtools, effect, effectScope, endMeasure, ensureHydrationRenderer, ensureRenderer, ensureVaporSlotFallback, expose, flushOnAppMount, forceReflow, forwardedSlotCreator, getCurrentInstance, getCurrentScope, getCurrentWatcher, getDefaultValue, getInheritedScopeIds, getRestElement, getTransitionRawChildren, guardReactiveProps, h, handleError, handleMovedChildren, hasCSSTransform, hasInjectionContext, hydrate, hydrateOnIdle, hydrateOnInteraction, hydrateOnMediaQuery, hydrateOnVisible, initCustomFormatter, initDirectivesForSSR, initFeatureFlags, inject, insert, isAsyncWrapper, isEmitListener, isFragment, isMemoSame, isProxy, isReactive, isReadonly, isRef, isRuntimeOnly, isShallow, isTeleportDeferred, isTeleportDisabled, isTemplateNode, isVNode, isVaporComponent, leaveCbKey, markAsyncBoundary, markRaw, mergeDefaults, mergeModels, mergeProps, moveCbKey, next, nextTick, nextUid, normalizeClass, normalizeContainer, normalizeProps, normalizeStyle, nthChild, on, onActivated, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onDeactivated, onErrorCaptured, onMounted, onRenderTracked, onRenderTriggered, onScopeDispose, onServerPrefetch, onUnmounted, onUpdated, onWatcherCleanup, openBlock, patchStyle, performTransitionEnter, performTransitionLeave, popScopeId, popWarningContext, prepend, provide, proxyRefs, pushScopeId, pushWarningContext, queueJob, queuePostFlushCb, reactive, readonly, ref, registerHMR, registerRuntimeCompiler, remove, removeTransitionClass, render, renderEffect, renderList, renderSlot, resolveComponent, resolveDirective, resolveDynamicComponent, resolveFilter, resolvePropValue, resolveTarget as resolveTeleportTarget, resolveTransitionHooks$1 as resolveTransitionHooks, resolveTransitionProps, setAttr, setBlockTracking, setClass, setCurrentInstance, setDOMProp, setDevtoolsHook, setDynamicEvents, setDynamicProps, setElementText, setHtml, setInsertionState, setProp, setStyle, setText, setTransitionHooks$1 as setTransitionHooks, setValue, shallowReactive, shallowReadonly$1 as shallowReadonly, shallowRef, shouldSetAsProp, simpleSetCurrentInstance, ssrContextKey, ssrUtils, startMeasure, stop, template, toDisplayString, toHandlerKey, toHandlers, toRaw, toRef, toRefs, toValue, transformVNodeArgs, triggerRef, txt, unref, unregisterHMR, useAsyncComponentState, useAttrs, useCssModule, useCssVars, useHost, useId, useModel, useSSRContext, useShadowRoot, useSlots, useTemplateRef, useTransitionState, vModelCheckbox, vModelCheckboxInit, vModelCheckboxUpdate, vModelDynamic, getValue as vModelGetValue, vModelRadio, vModelSelect, vModelSelectInit, vModelSetSelected, vModelText, vModelTextInit, vModelTextUpdate, vShow, vShowHidden, vShowOriginalDisplay, validateComponentName, validateProps, vaporInteropPlugin, version, warn$1 as warn, watch, watchEffect, watchPostEffect, watchSyncEffect, withAsyncContext, withCtx, withDefaults, withDirectives, withKeys, withMemo, withModifiers, withScopeId, withVaporDirectives };
+export { BaseTransition, BaseTransitionPropsValidators, Comment$1 as Comment, DeprecationTypes, EffectScope, ErrorCodes, ErrorTypeStrings, Fragment, KeepAlive, MismatchTypes, MoveType, ReactiveEffect, Static, Suspense, Teleport, Text$1 as Text, TrackOpTypes, Transition, TransitionGroup, TransitionPropsValidators, TriggerOpTypes, VaporFragment, VaporTeleportImpl as VaporTeleport, VaporTransition, VaporTransitionGroup, VueElement, addTransitionClass, applyCheckboxModel, applyDynamicModel, applyRadioModel, applySelectModel, applyTextModel, applyVShow, assertNumber, baseApplyTranslation, baseEmit, baseNormalizePropsOptions, baseResolveTransitionHooks, callPendingCbs, callWithAsyncErrorHandling, callWithErrorHandling, camelize, capitalize, checkTransitionMode, child, cloneVNode, compatUtils, compile, computed, createApp, createAppAPI, createAsyncComponentContext, createBlock, createCanSetSetupRefChecker, createCommentVNode, createComponent, createComponentWithFallback, createDynamicComponent, createElementBlock, createBaseVNode as createElementVNode, createFor, createForSlots, createHydrationRenderer, createIf, createInternalObject, createKeyedFragment, createPropsRestProxy, createRenderer, createSSRApp, createSlot, createSlots, createStaticVNode, createTemplateRefSetter, createTextNode, createTextVNode, createVNode, createVaporApp, createVaporSSRApp, currentInstance, customRef, defineAsyncComponent, defineComponent, defineCustomElement, defineEmits, defineExpose, defineModel, defineOptions, defineProps, defineSSRCustomElement, defineSlots, defineVaporAsyncComponent, defineVaporComponent, delegate, delegateEvents, devtools, effect, effectScope, endMeasure, ensureHydrationRenderer, ensureRenderer, ensureVaporSlotFallback, expose, flushOnAppMount, forceReflow, forwardedSlotCreator, getAttributeMismatch, getCurrentInstance, getCurrentScope, getCurrentWatcher, getDefaultValue, getInheritedScopeIds, getRestElement, getTransitionRawChildren, guardReactiveProps, h, handleError, handleMovedChildren, hasCSSTransform, hasInjectionContext, hydrate, hydrateOnIdle, hydrateOnInteraction, hydrateOnMediaQuery, hydrateOnVisible, initCustomFormatter, initDirectivesForSSR, initFeatureFlags, inject, insert, isAsyncWrapper, isEmitListener, isFragment, isMapEqual, isMemoSame, isMismatchAllowed, isProxy, isReactive, isReadonly, isRef, isRuntimeOnly, isSetEqual, isShallow, isTeleportDeferred, isTeleportDisabled, isTemplateNode, isVNode, isValidHtmlOrSvgAttribute, isVaporComponent, leaveCbKey, markAsyncBoundary, markRaw, mergeDefaults, mergeModels, mergeProps, moveCbKey, next, nextTick, nextUid, normalizeClass, normalizeContainer, normalizeProps, normalizeStyle, nthChild, on, onActivated, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onDeactivated, onErrorCaptured, onMounted, onRenderTracked, onRenderTriggered, onScopeDispose, onServerPrefetch, onUnmounted, onUpdated, onWatcherCleanup, openBlock, patchStyle, performTransitionEnter, performTransitionLeave, popScopeId, popWarningContext, prepend, provide, proxyRefs, pushScopeId, pushWarningContext, queueJob, queuePostFlushCb, reactive, readonly, ref, registerHMR, registerRuntimeCompiler, remove, removeTransitionClass, render, renderEffect, renderList, renderSlot, resolveComponent, resolveDirective, resolveDynamicComponent, resolveFilter, resolvePropValue, resolveTarget as resolveTeleportTarget, resolveTransitionHooks$1 as resolveTransitionHooks, resolveTransitionProps, setAttr, setBlockTracking, setClass, setCurrentInstance, setDOMProp, setDevtoolsHook, setDynamicEvents, setDynamicProps, setElementText, setHtml, setInsertionState, setProp, setStyle, setText, setTransitionHooks$1 as setTransitionHooks, setValue, shallowReactive, shallowReadonly$1 as shallowReadonly, shallowRef, shouldSetAsProp, simpleSetCurrentInstance, ssrContextKey, ssrUtils, startMeasure, stop, template, toClassSet, toDisplayString, toHandlerKey, toHandlers, toRaw, toRef, toRefs, toStyleMap, toValue, transformVNodeArgs, triggerRef, txt, unref, unregisterHMR, useAsyncComponentState, useAttrs, useCssModule, useCssVars, useHost, useId, useModel, useSSRContext, useShadowRoot, useSlots, useTemplateRef, useTransitionState, vModelCheckbox, vModelCheckboxInit, vModelCheckboxUpdate, vModelDynamic, getValue as vModelGetValue, vModelRadio, vModelSelect, vModelSelectInit, vModelSetSelected, vModelText, vModelTextInit, vModelTextUpdate, vShow, vShowHidden, vShowOriginalDisplay, validateComponentName, validateProps, vaporInteropPlugin, version, warn$1 as warn, warnPropMismatch, watch, watchEffect, watchPostEffect, watchSyncEffect, withAsyncContext, withCtx, withDefaults, withDirectives, withKeys, withMemo, withModifiers, withScopeId, withVaporDirectives };

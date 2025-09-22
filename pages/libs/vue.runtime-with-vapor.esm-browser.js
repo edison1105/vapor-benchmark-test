@@ -4059,13 +4059,13 @@ function createCanSetSetupRefChecker(setupState) {
   };
 }
 
-let hasLoggedMismatchError = false;
-const logMismatchError = () => {
-  if (hasLoggedMismatchError) {
+let hasLoggedMismatchError$1 = false;
+const logMismatchError$1 = () => {
+  if (hasLoggedMismatchError$1) {
     return;
   }
   console.error("Hydration completed but contains mismatches.");
-  hasLoggedMismatchError = true;
+  hasLoggedMismatchError$1 = true;
 };
 const isSVGContainer = (container) => container.namespaceURI.includes("svg") && container.tagName !== "foreignObject";
 const isMathMLContainer = (container) => container.namespaceURI.includes("MathML");
@@ -4147,7 +4147,7 @@ function createHydrationFunctions(rendererInternals) {
               )}
   - expected on client: ${JSON.stringify(vnode.children)}`
             );
-            logMismatchError();
+            logMismatchError$1();
             node.data = vnode.children;
           }
           nextNode = nextSibling(node);
@@ -4335,7 +4335,7 @@ function createHydrationFunctions(rendererInternals) {
         );
         let hasWarned = false;
         while (next) {
-          if (!isMismatchAllowed(el, 1 /* CHILDREN */)) {
+          if (!isMismatchAllowed(el, 1)) {
             if (!hasWarned) {
               warn$1(
                 `Hydration children mismatch on`,
@@ -4345,7 +4345,7 @@ Server rendered element contains more child nodes than client vdom.`
               );
               hasWarned = true;
             }
-            logMismatchError();
+            logMismatchError$1();
           }
           const cur = next;
           next = next.nextSibling;
@@ -4357,7 +4357,7 @@ Server rendered element contains more child nodes than client vdom.`
           clientText = clientText.slice(1);
         }
         if (el.textContent !== clientText) {
-          if (!isMismatchAllowed(el, 0 /* TEXT */)) {
+          if (!isMismatchAllowed(el, 0)) {
             warn$1(
               `Hydration text content mismatch on`,
               el,
@@ -4365,7 +4365,7 @@ Server rendered element contains more child nodes than client vdom.`
   - rendered on server: ${el.textContent}
   - expected on client: ${vnode.children}`
             );
-            logMismatchError();
+            logMismatchError$1();
           }
           el.textContent = vnode.children;
         }
@@ -4377,7 +4377,7 @@ Server rendered element contains more child nodes than client vdom.`
             if (// #11189 skip if this node has directives that have created hooks
             // as it could have mutated the DOM in any possible way
             !(dirs && dirs.some((d) => d.dir.created)) && propHasMismatch(el, key, props[key], vnode, parentComponent)) {
-              logMismatchError();
+              logMismatchError$1();
             }
             if (forcePatch && (key.endsWith("value") || key === "indeterminate") || isOn(key) && !isReservedProp(key) || // force hydrate v-bind with .prop modifiers
             key[0] === "." || isCustomElement) {
@@ -4439,7 +4439,7 @@ Server rendered element contains more child nodes than client vdom.`
       } else if (isText && !vnode.children) {
         insert(vnode.el = createText(""), container);
       } else {
-        if (!isMismatchAllowed(container, 1 /* CHILDREN */)) {
+        if (!isMismatchAllowed(container, 1)) {
           if (!hasWarned) {
             warn$1(
               `Hydration children mismatch on`,
@@ -4449,7 +4449,7 @@ Server rendered element contains fewer child nodes than client vdom.`
             );
             hasWarned = true;
           }
-          logMismatchError();
+          logMismatchError$1();
         }
         patch(
           null,
@@ -4483,13 +4483,13 @@ Server rendered element contains fewer child nodes than client vdom.`
     if (next && isComment$1(next) && next.data === "]") {
       return nextSibling(vnode.anchor = next);
     } else {
-      logMismatchError();
+      logMismatchError$1();
       insert(vnode.anchor = createComment(`]`), container, next);
       return next;
     }
   };
   const handleMismatch = (node, vnode, parentComponent, parentSuspense, slotScopeIds, isFragment) => {
-    if (!isMismatchAllowed(node.parentElement, 1 /* CHILDREN */)) {
+    if (!isMismatchAllowed(node.parentElement, 1)) {
       warn$1(
         `Hydration node mismatch:
 - rendered on server:`,
@@ -4499,7 +4499,7 @@ Server rendered element contains fewer child nodes than client vdom.`
 - expected on client:`,
         vnode.type
       );
-      logMismatchError();
+      logMismatchError$1();
     }
     vnode.el = null;
     if (isFragment) {
@@ -4581,7 +4581,7 @@ function propHasMismatch(el, key, clientValue, vnode, instance) {
     }
     expected = normalizeClass(clientValue);
     if (!isSetEqual(toClassSet(actual || ""), toClassSet(expected))) {
-      mismatchType = 2 /* CLASS */;
+      mismatchType = 2;
       mismatchKey = `class`;
     }
   } else if (key === "style") {
@@ -4600,31 +4600,43 @@ function propHasMismatch(el, key, clientValue, vnode, instance) {
       resolveCssVars(instance, vnode, expectedMap);
     }
     if (!isMapEqual(actualMap, expectedMap)) {
-      mismatchType = 3 /* STYLE */;
+      mismatchType = 3;
       mismatchKey = "style";
     }
-  } else if (el instanceof SVGElement && isKnownSvgAttr(key) || el instanceof HTMLElement && (isBooleanAttr(key) || isKnownHtmlAttr(key))) {
-    if (isBooleanAttr(key)) {
-      actual = el.hasAttribute(key);
-      expected = includeBooleanAttr(clientValue);
-    } else if (clientValue == null) {
-      actual = el.hasAttribute(key);
-      expected = false;
-    } else {
-      if (el.hasAttribute(key)) {
-        actual = el.getAttribute(key);
-      } else if (key === "value" && el.tagName === "TEXTAREA") {
-        actual = el.value;
-      } else {
-        actual = false;
-      }
-      expected = isRenderableAttrValue(clientValue) ? String(clientValue) : false;
-    }
+  } else if (isValidHtmlOrSvgAttribute(el, key)) {
+    ({ actual, expected } = getAttributeMismatch(el, key, clientValue));
     if (actual !== expected) {
-      mismatchType = 4 /* ATTRIBUTE */;
+      mismatchType = 4;
       mismatchKey = key;
     }
   }
+  return warnPropMismatch(el, mismatchKey, mismatchType, actual, expected);
+}
+function getAttributeMismatch(el, key, clientValue) {
+  let actual;
+  let expected;
+  if (isBooleanAttr(key)) {
+    actual = el.hasAttribute(key);
+    expected = includeBooleanAttr(clientValue);
+  } else if (clientValue == null) {
+    actual = el.hasAttribute(key);
+    expected = false;
+  } else {
+    if (el.hasAttribute(key)) {
+      actual = el.getAttribute(key);
+    } else if (key === "value" && el.tagName === "TEXTAREA") {
+      actual = el.value;
+    } else {
+      actual = false;
+    }
+    expected = isRenderableAttrValue(clientValue) ? String(clientValue) : false;
+  }
+  return { actual, expected };
+}
+function isValidHtmlOrSvgAttribute(el, key) {
+  return el instanceof SVGElement && isKnownSvgAttr(key) || el instanceof HTMLElement && (isBooleanAttr(key) || isKnownHtmlAttr(key));
+}
+function warnPropMismatch(el, mismatchKey, mismatchType, actual, expected) {
   if (mismatchType != null && !isMismatchAllowed(el, mismatchType)) {
     const format = (v) => v === false ? `(not rendered)` : `${mismatchKey}="${v}"`;
     const preSegment = `Hydration ${MismatchTypeString[mismatchType]} mismatch on`;
@@ -4695,15 +4707,27 @@ function resolveCssVars(instance, vnode, expectedMap) {
   }
 }
 const allowMismatchAttr = "data-allow-mismatch";
+const MismatchTypes = {
+  "TEXT": 0,
+  "0": "TEXT",
+  "CHILDREN": 1,
+  "1": "CHILDREN",
+  "CLASS": 2,
+  "2": "CLASS",
+  "STYLE": 3,
+  "3": "STYLE",
+  "ATTRIBUTE": 4,
+  "4": "ATTRIBUTE"
+};
 const MismatchTypeString = {
-  [0 /* TEXT */]: "text",
-  [1 /* CHILDREN */]: "children",
-  [2 /* CLASS */]: "class",
-  [3 /* STYLE */]: "style",
-  [4 /* ATTRIBUTE */]: "attribute"
+  [0]: "text",
+  [1]: "children",
+  [2]: "class",
+  [3]: "style",
+  [4]: "attribute"
 };
 function isMismatchAllowed(el, allowedType) {
-  if (allowedType === 0 /* TEXT */ || allowedType === 1 /* CHILDREN */) {
+  if (allowedType === 0 || allowedType === 1) {
     while (el && !el.hasAttribute(allowMismatchAttr)) {
       el = el.parentElement;
     }
@@ -4715,7 +4739,7 @@ function isMismatchAllowed(el, allowedType) {
     return true;
   } else {
     const list = allowedAttr.split(",");
-    if (allowedType === 0 /* TEXT */ && list.includes("children")) {
+    if (allowedType === 0 && list.includes("children")) {
       return true;
     }
     return list.includes(MismatchTypeString[allowedType]);
@@ -13080,12 +13104,16 @@ function createComment(data) {
 function querySelector(selectors) {
   return document.querySelector(selectors);
 }
+/*! @__NO_SIDE_EFFECTS__ */
+// @__NO_SIDE_EFFECTS__
+function parentNode(node) {
+  return node.parentNode;
+}
 const _txt = _child;
 const __txt = /* @__NO_SIDE_EFFECTS__ */ (node) => {
   let n = node.firstChild;
   if (!n) {
-    node.textContent = " ";
-    return node.firstChild;
+    return node.appendChild(/* @__PURE__ */ createTextNode());
   }
   return n;
 };
@@ -13177,9 +13205,6 @@ function template(html, root) {
   const fn = () => {
     if (isHydrating) {
       currentTemplateFn = fn;
-      if (!currentHydrationNode) {
-        throw new Error("No current hydration node");
-      }
       const adopted = adoptTemplate(currentHydrationNode, html);
       if (root) adopted.$root = true;
       return adopted;
@@ -13224,8 +13249,21 @@ function initializeHydrationState(parent) {
       insertionAnchor = void 0;
       return;
     }
-    parent.$idxMap = currentTemplateFn ? currentTemplateFn.$idxMap || // cache the idxMap on the template function for reusing inside v-for
-    (currentTemplateFn.$idxMap = buildLogicalIndexMap(len, childNodes)) : buildLogicalIndexMap(len, childNodes);
+    if (currentTemplateFn) {
+      if (currentTemplateFn.$idxMap) {
+        const idxMap = parent.$idxMap = currentTemplateFn.$idxMap;
+        for (let i = 0; i < idxMap.length; i++) {
+          childNodes[idxMap[i]].$idx = i;
+        }
+      } else {
+        parent.$idxMap = currentTemplateFn.$idxMap = buildLogicalIndexMap(
+          len,
+          childNodes
+        );
+      }
+    } else {
+      parent.$idxMap = buildLogicalIndexMap(len, childNodes);
+    }
     parent.$prevDynamicCount = 0;
     parent.$anchorCount = 0;
     parent.$appendIndex = null;
@@ -13267,6 +13305,7 @@ function cacheTemplateChildren(parent) {
   if (!parent.$children) {
     const nodes = parent.childNodes;
     const len = nodes.length;
+    if (len === 0) return;
     const children = new Array(len);
     for (let i = 0; i < len; i++) {
       const node = nodes[i];
@@ -13347,19 +13386,20 @@ function adoptTemplateImpl(node, template) {
     while (node.nodeType === 8) {
       node = node.nextSibling;
       if (template.trim() === "" && isComment(node, "]") && isComment(node.previousSibling, "[")) {
-        node = node.parentNode.insertBefore(createTextNode(" "), node);
-        incrementIndexOffset(node.parentNode);
+        const parent = parentNode(node);
+        node = parent.insertBefore(createTextNode(), node);
+        incrementIndexOffset(parent);
         break;
       }
     }
   }
-  {
-    const type = node.nodeType;
-    if (type === 8 && !template.startsWith("<!") || type === 1 && !template.startsWith(`<` + node.tagName.toLowerCase()) || type === 3 && template.trim() && !template.startsWith(node.data)) {
-      warn(`adopted: `, node);
-      warn(`template: ${template}`);
-      warn("hydration mismatch!");
-    }
+  const type = node.nodeType;
+  if (
+    // comment node
+    type === 8 && !template.startsWith("<!") || // element node
+    type === 1 && !template.startsWith(`<` + node.tagName.toLowerCase())
+  ) {
+    node = handleMismatch(node, template);
   }
   advanceHydrationNode(node);
   return node;
@@ -13413,10 +13453,31 @@ function locateHydrationNodeImpl() {
     }
   }
   if (!node) {
-    warn("Hydration mismatch in ", insertionParent);
+    throw new Error(
+      `No current hydration node was found.
+this is likely a Vue internal bug.`
+    );
   }
   resetInsertionState();
   currentHydrationNode = node;
+}
+function locateEndAnchor(node, open = "[", close = "]") {
+  if (node.$fe) {
+    return node.$fe;
+  }
+  const stack = [node];
+  while ((node = node.nextSibling) && stack.length > 0) {
+    if (node.nodeType === 8) {
+      if (node.data === open) {
+        stack.push(node);
+      } else if (node.data === close) {
+        const matchingOpen = stack.pop();
+        matchingOpen.$fe = node;
+        if (stack.length === 0) return node;
+      }
+    }
+  }
+  return null;
 }
 function locateFragmentEndAnchor(label = "]") {
   let node = currentHydrationNode;
@@ -13426,6 +13487,54 @@ function locateFragmentEndAnchor(label = "]") {
   }
   return null;
 }
+function handleMismatch(node, template) {
+  if (!isMismatchAllowed(node.parentElement, 1)) {
+    warn(
+      `Hydration node mismatch:
+- rendered on server:`,
+      node,
+      node.nodeType === 3 ? `(text)` : isComment(node, "[[") ? `(start of block node)` : ``,
+      `
+- expected on client:`,
+      template
+    );
+    logMismatchError();
+  }
+  if (isComment(node, "[")) {
+    const end = locateEndAnchor(node);
+    while (true) {
+      const next2 = _next(node);
+      if (next2 && next2 !== end) {
+        remove(next2, parentNode(node));
+      } else {
+        break;
+      }
+    }
+  }
+  const next = _next(node);
+  const container = parentNode(node);
+  remove(node, container);
+  if (template[0] !== "<") {
+    return container.insertBefore(createTextNode(template), next);
+  }
+  const t = createElement("template");
+  t.innerHTML = template;
+  const newNode = child(t.content).cloneNode(true);
+  newNode.innerHTML = node.innerHTML;
+  Array.from(node.attributes).forEach((attr) => {
+    newNode.setAttribute(attr.name, attr.value);
+  });
+  container.insertBefore(newNode, next);
+  return newNode;
+}
+let hasLoggedMismatchError = false;
+const logMismatchError = () => {
+  if (hasLoggedMismatchError) {
+    return;
+  }
+  console.error("Hydration completed but contains mismatches.");
+  hasLoggedMismatchError = true;
+};
 
 class RenderEffect extends ReactiveEffect {
   constructor(render) {
@@ -14119,6 +14228,10 @@ function setAttr(el, key, value) {
   } else if (key === "false-value") {
     el._falseValue = value;
   }
+  if (isHydrating && !attributeHasMismatch(el, key, value)) {
+    el[`$${key}`] = value;
+    return;
+  }
   if (value !== el[`$${key}`]) {
     el[`$${key}`] = value;
     if (value != null) {
@@ -14130,6 +14243,9 @@ function setAttr(el, key, value) {
 }
 function setDOMProp(el, key, value) {
   if (!isApplyingFallthroughProps && el.$root && hasFallthroughKey(key)) {
+    return;
+  }
+  if (isHydrating && !attributeHasMismatch(el, key, value)) {
     return;
   }
   const prev = el[key];
@@ -14162,14 +14278,26 @@ function setDOMProp(el, key, value) {
 function setClass(el, value) {
   if (el.$root) {
     setClassIncremental(el, value);
-  } else if ((value = normalizeClass(value)) !== el.$cls) {
-    el.className = el.$cls = value;
+  } else {
+    value = normalizeClass(value);
+    if (isHydrating && !classHasMismatch(el, value, false)) {
+      el.$cls = value;
+      return;
+    }
+    if (value !== el.$cls) {
+      el.className = el.$cls = value;
+    }
   }
 }
 function setClassIncremental(el, value) {
   const cacheKey = `$clsi${isApplyingFallthroughProps ? "$" : ""}`;
+  const normalizedValue = normalizeClass(value);
+  if (isHydrating && !classHasMismatch(el, normalizedValue, true)) {
+    el[cacheKey] = normalizedValue;
+    return;
+  }
   const prev = el[cacheKey];
-  if ((value = el[cacheKey] = normalizeClass(value)) !== prev) {
+  if ((value = el[cacheKey] = normalizedValue) !== prev) {
     const nextList = value.split(/\s+/);
     if (value) {
       el.classList.add(...nextList);
@@ -14185,23 +14313,31 @@ function setStyle(el, value) {
   if (el.$root) {
     setStyleIncremental(el, value);
   } else {
-    const prev = el.$sty;
-    value = el.$sty = normalizeStyle(value);
-    patchStyle(el, prev, value);
+    const normalizedValue = normalizeStyle(value);
+    if (isHydrating && !styleHasMismatch(el, value, normalizedValue, false)) {
+      el.$sty = normalizedValue;
+      return;
+    }
+    patchStyle(el, el.$sty, el.$sty = normalizedValue);
   }
 }
 function setStyleIncremental(el, value) {
   const cacheKey = `$styi${isApplyingFallthroughProps ? "$" : ""}`;
-  const prev = el[cacheKey];
-  value = el[cacheKey] = isString(value) ? parseStringStyle(value) : normalizeStyle(value);
-  patchStyle(el, prev, value);
-  return value;
+  const normalizedValue = isString(value) ? parseStringStyle(value) : normalizeStyle(value);
+  if (isHydrating && !styleHasMismatch(el, value, normalizedValue, true)) {
+    el[cacheKey] = normalizedValue;
+    return;
+  }
+  patchStyle(el, el[cacheKey], el[cacheKey] = normalizedValue);
 }
 function setValue(el, value) {
   if (!isApplyingFallthroughProps && el.$root && hasFallthroughKey("value")) {
     return;
   }
   el._value = value;
+  if (isHydrating && !attributeHasMismatch(el, "value", getClientText(el, value))) {
+    return;
+  }
   const oldValue = el.tagName === "OPTION" ? el.getAttribute("value") : el.value;
   const newValue = value == null ? "" : value;
   if (oldValue !== newValue) {
@@ -14212,17 +14348,67 @@ function setValue(el, value) {
   }
 }
 function setText(el, value) {
+  if (isHydrating) {
+    const clientText = getClientText(el.parentNode, value);
+    if (el.nodeValue == clientText) {
+      el.$txt = clientText;
+      return;
+    }
+    warn(
+      `Hydration text mismatch in`,
+      el.parentNode,
+      `
+  - rendered on server: ${JSON.stringify(el.data)}
+  - expected on client: ${JSON.stringify(value)}`
+    );
+    logMismatchError();
+  }
   if (el.$txt !== value) {
     el.nodeValue = el.$txt = value;
   }
 }
-function setElementText(el, value, isConverted = false) {
-  if (el.$txt !== (value = isConverted ? value : toDisplayString(value))) {
+function setElementText(el, value) {
+  value = toDisplayString(value);
+  if (isHydrating) {
+    let clientText = getClientText(el, value);
+    if (el.textContent === clientText) {
+      el.$txt = clientText;
+      return;
+    }
+    if (!isMismatchAllowed(el, 0)) {
+      warn(
+        `Hydration text content mismatch on`,
+        el,
+        `
+  - rendered on server: ${el.textContent}
+  - expected on client: ${clientText}`
+      );
+      logMismatchError();
+    }
+  }
+  if (el.$txt !== value) {
     el.textContent = el.$txt = value;
   }
 }
 function setHtml(el, value) {
   value = value == null ? "" : value;
+  if (isHydrating) {
+    if (el.innerHTML === value) {
+      el.$html = value;
+      return;
+    }
+    if (!isMismatchAllowed(el, 1)) {
+      {
+        warn(
+          `Hydration children mismatch on`,
+          el,
+          `
+Server rendered element contains different child nodes from client nodes.`
+        );
+      }
+      logMismatchError();
+    }
+  }
   if (el.$html !== value) {
     el.innerHTML = el.$html = value;
   }
@@ -14277,6 +14463,59 @@ function optimizePropertyLookup() {
   proto.$idx = void 0;
   proto.$root = false;
   proto.$html = proto.$txt = proto.$cls = proto.$sty = Text.prototype.$txt = "";
+}
+function classHasMismatch(el, expected, isIncremental) {
+  const actual = el.getAttribute("class");
+  const actualClassSet = toClassSet(actual || "");
+  const expectedClassSet = toClassSet(expected);
+  const hasMismatch = isIncremental ? (
+    // check if the expected classes are present in the actual classes
+    Array.from(expectedClassSet).some((cls) => !actualClassSet.has(cls))
+  ) : !isSetEqual(actualClassSet, expectedClassSet);
+  if (hasMismatch) {
+    warnPropMismatch(el, "class", 2, actual, expected);
+    logMismatchError();
+    return true;
+  }
+  return false;
+}
+function styleHasMismatch(el, value, normalizedValue, isIncremental) {
+  const actual = el.getAttribute("style");
+  const actualStyleMap = toStyleMap(actual || "");
+  const expected = isString(value) ? value : stringifyStyle(normalizedValue);
+  const expectedStyleMap = toStyleMap(expected);
+  if (el[vShowHidden]) {
+    expectedStyleMap.set("display", "none");
+  }
+  const hasMismatch = isIncremental ? (
+    // check if the expected styles are present in the actual styles
+    Array.from(expectedStyleMap.entries()).some(
+      ([key, val]) => actualStyleMap.get(key) !== val
+    )
+  ) : !isMapEqual(actualStyleMap, expectedStyleMap);
+  if (hasMismatch) {
+    warnPropMismatch(el, "style", 3, actual, expected);
+    logMismatchError();
+    return true;
+  }
+  return false;
+}
+function attributeHasMismatch(el, key, value) {
+  if (isValidHtmlOrSvgAttribute(el, key)) {
+    const { actual, expected } = getAttributeMismatch(el, key, value);
+    if (actual !== expected) {
+      warnPropMismatch(el, key, 4, actual, expected);
+      logMismatchError();
+      return true;
+    }
+  }
+  return false;
+}
+function getClientText(el, value) {
+  if (value[0] === "\n" && (el.tagName === "PRE" || el.tagName === "TEXTAREA")) {
+    value = value.slice(1);
+  }
+  return value;
 }
 
 const interopKey = Symbol(`interop`);
@@ -16410,9 +16649,24 @@ function setDisplay(target, value) {
         }
       }
     } else {
-      el.style.display = value ? el[vShowOriginalDisplay] : "none";
+      if (isHydrating) {
+        if (!value && el.style.display !== "none") {
+          warnPropMismatch(
+            el,
+            "style",
+            3,
+            `display: ${el.style.display}`,
+            "display: none"
+          );
+          logMismatchError();
+          el.style.display = "none";
+          el[vShowOriginalDisplay] = "";
+        }
+      } else {
+        el.style.display = value ? el[vShowOriginalDisplay] : "none";
+      }
+      el[vShowHidden] = !value;
     }
-    el[vShowHidden] = !value;
   } else {
     warn(
       `v-show used on component with non-single-element root node and will be ignored.`
@@ -16640,4 +16894,4 @@ function getFirstConnectedChild(children) {
   }
 }
 
-export { BaseTransition, BaseTransitionPropsValidators, Comment$1 as Comment, DeprecationTypes, EffectScope, ErrorCodes, ErrorTypeStrings, Fragment, KeepAlive, MoveType, ReactiveEffect, Static, Suspense, Teleport, Text$1 as Text, TrackOpTypes, Transition, TransitionGroup, TransitionPropsValidators, TriggerOpTypes, VaporFragment, VaporTeleportImpl as VaporTeleport, VaporTransition, VaporTransitionGroup, VueElement, addTransitionClass, applyCheckboxModel, applyDynamicModel, applyRadioModel, applySelectModel, applyTextModel, applyVShow, assertNumber, baseApplyTranslation, baseEmit, baseNormalizePropsOptions, baseResolveTransitionHooks, callPendingCbs, callWithAsyncErrorHandling, callWithErrorHandling, camelize, capitalize, checkTransitionMode, child, cloneVNode, compatUtils, compile, computed, createApp, createAppAPI, createAsyncComponentContext, createBlock, createCanSetSetupRefChecker, createCommentVNode, createComponent, createComponentWithFallback, createDynamicComponent, createElementBlock, createBaseVNode as createElementVNode, createFor, createForSlots, createHydrationRenderer, createIf, createInternalObject, createKeyedFragment, createPropsRestProxy, createRenderer, createSSRApp, createSlot, createSlots, createStaticVNode, createTemplateRefSetter, createTextNode, createTextVNode, createVNode, createVaporApp, createVaporSSRApp, currentInstance, customRef, defineAsyncComponent, defineComponent, defineCustomElement, defineEmits, defineExpose, defineModel, defineOptions, defineProps, defineSSRCustomElement, defineSlots, defineVaporAsyncComponent, defineVaporComponent, delegate, delegateEvents, devtools, effect, effectScope, endMeasure, ensureHydrationRenderer, ensureRenderer, ensureVaporSlotFallback, expose, flushOnAppMount, forceReflow, forwardedSlotCreator, getCurrentInstance, getCurrentScope, getCurrentWatcher, getDefaultValue, getInheritedScopeIds, getRestElement, getTransitionRawChildren, guardReactiveProps, h, handleError, handleMovedChildren, hasCSSTransform, hasInjectionContext, hydrate, hydrateOnIdle, hydrateOnInteraction, hydrateOnMediaQuery, hydrateOnVisible, initCustomFormatter, initDirectivesForSSR, initFeatureFlags, inject, insert, isAsyncWrapper, isEmitListener, isFragment, isMemoSame, isProxy, isReactive, isReadonly, isRef, isRuntimeOnly, isShallow, isTeleportDeferred, isTeleportDisabled, isTemplateNode, isVNode, isVaporComponent, leaveCbKey, markAsyncBoundary, markRaw, mergeDefaults, mergeModels, mergeProps, moveCbKey, next, nextTick, nextUid, normalizeClass, normalizeContainer, normalizeProps, normalizeStyle, nthChild, on, onActivated, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onDeactivated, onErrorCaptured, onMounted, onRenderTracked, onRenderTriggered, onScopeDispose, onServerPrefetch, onUnmounted, onUpdated, onWatcherCleanup, openBlock, patchStyle, performTransitionEnter, performTransitionLeave, popScopeId, popWarningContext, prepend, provide, proxyRefs, pushScopeId, pushWarningContext, queueJob, queuePostFlushCb, reactive, readonly, ref, registerHMR, registerRuntimeCompiler, remove, removeTransitionClass, render, renderEffect, renderList, renderSlot, resolveComponent, resolveDirective, resolveDynamicComponent, resolveFilter, resolvePropValue, resolveTarget as resolveTeleportTarget, resolveTransitionHooks$1 as resolveTransitionHooks, resolveTransitionProps, setAttr, setBlockTracking, setClass, setCurrentInstance, setDOMProp, setDevtoolsHook, setDynamicEvents, setDynamicProps, setElementText, setHtml, setInsertionState, setProp, setStyle, setText, setTransitionHooks$1 as setTransitionHooks, setValue, shallowReactive, shallowReadonly, shallowRef, shouldSetAsProp, simpleSetCurrentInstance, ssrContextKey, ssrUtils, startMeasure, stop, template, toDisplayString, toHandlerKey, toHandlers, toRaw, toRef, toRefs, toValue, transformVNodeArgs, triggerRef, txt, unref, unregisterHMR, useAsyncComponentState, useAttrs, useCssModule, useCssVars, useHost, useId, useModel, useSSRContext, useShadowRoot, useSlots, useTemplateRef, useTransitionState, vModelCheckbox, vModelCheckboxInit, vModelCheckboxUpdate, vModelDynamic, getValue as vModelGetValue, vModelRadio, vModelSelect, vModelSelectInit, vModelSetSelected, vModelText, vModelTextInit, vModelTextUpdate, vShow, vShowHidden, vShowOriginalDisplay, validateComponentName, validateProps, vaporInteropPlugin, version, warn, watch, watchEffect, watchPostEffect, watchSyncEffect, withAsyncContext, withCtx, withDefaults, withDirectives, withKeys, withMemo, withModifiers, withScopeId, withVaporDirectives };
+export { BaseTransition, BaseTransitionPropsValidators, Comment$1 as Comment, DeprecationTypes, EffectScope, ErrorCodes, ErrorTypeStrings, Fragment, KeepAlive, MismatchTypes, MoveType, ReactiveEffect, Static, Suspense, Teleport, Text$1 as Text, TrackOpTypes, Transition, TransitionGroup, TransitionPropsValidators, TriggerOpTypes, VaporFragment, VaporTeleportImpl as VaporTeleport, VaporTransition, VaporTransitionGroup, VueElement, addTransitionClass, applyCheckboxModel, applyDynamicModel, applyRadioModel, applySelectModel, applyTextModel, applyVShow, assertNumber, baseApplyTranslation, baseEmit, baseNormalizePropsOptions, baseResolveTransitionHooks, callPendingCbs, callWithAsyncErrorHandling, callWithErrorHandling, camelize, capitalize, checkTransitionMode, child, cloneVNode, compatUtils, compile, computed, createApp, createAppAPI, createAsyncComponentContext, createBlock, createCanSetSetupRefChecker, createCommentVNode, createComponent, createComponentWithFallback, createDynamicComponent, createElementBlock, createBaseVNode as createElementVNode, createFor, createForSlots, createHydrationRenderer, createIf, createInternalObject, createKeyedFragment, createPropsRestProxy, createRenderer, createSSRApp, createSlot, createSlots, createStaticVNode, createTemplateRefSetter, createTextNode, createTextVNode, createVNode, createVaporApp, createVaporSSRApp, currentInstance, customRef, defineAsyncComponent, defineComponent, defineCustomElement, defineEmits, defineExpose, defineModel, defineOptions, defineProps, defineSSRCustomElement, defineSlots, defineVaporAsyncComponent, defineVaporComponent, delegate, delegateEvents, devtools, effect, effectScope, endMeasure, ensureHydrationRenderer, ensureRenderer, ensureVaporSlotFallback, expose, flushOnAppMount, forceReflow, forwardedSlotCreator, getAttributeMismatch, getCurrentInstance, getCurrentScope, getCurrentWatcher, getDefaultValue, getInheritedScopeIds, getRestElement, getTransitionRawChildren, guardReactiveProps, h, handleError, handleMovedChildren, hasCSSTransform, hasInjectionContext, hydrate, hydrateOnIdle, hydrateOnInteraction, hydrateOnMediaQuery, hydrateOnVisible, initCustomFormatter, initDirectivesForSSR, initFeatureFlags, inject, insert, isAsyncWrapper, isEmitListener, isFragment, isMapEqual, isMemoSame, isMismatchAllowed, isProxy, isReactive, isReadonly, isRef, isRuntimeOnly, isSetEqual, isShallow, isTeleportDeferred, isTeleportDisabled, isTemplateNode, isVNode, isValidHtmlOrSvgAttribute, isVaporComponent, leaveCbKey, markAsyncBoundary, markRaw, mergeDefaults, mergeModels, mergeProps, moveCbKey, next, nextTick, nextUid, normalizeClass, normalizeContainer, normalizeProps, normalizeStyle, nthChild, on, onActivated, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onDeactivated, onErrorCaptured, onMounted, onRenderTracked, onRenderTriggered, onScopeDispose, onServerPrefetch, onUnmounted, onUpdated, onWatcherCleanup, openBlock, patchStyle, performTransitionEnter, performTransitionLeave, popScopeId, popWarningContext, prepend, provide, proxyRefs, pushScopeId, pushWarningContext, queueJob, queuePostFlushCb, reactive, readonly, ref, registerHMR, registerRuntimeCompiler, remove, removeTransitionClass, render, renderEffect, renderList, renderSlot, resolveComponent, resolveDirective, resolveDynamicComponent, resolveFilter, resolvePropValue, resolveTarget as resolveTeleportTarget, resolveTransitionHooks$1 as resolveTransitionHooks, resolveTransitionProps, setAttr, setBlockTracking, setClass, setCurrentInstance, setDOMProp, setDevtoolsHook, setDynamicEvents, setDynamicProps, setElementText, setHtml, setInsertionState, setProp, setStyle, setText, setTransitionHooks$1 as setTransitionHooks, setValue, shallowReactive, shallowReadonly, shallowRef, shouldSetAsProp, simpleSetCurrentInstance, ssrContextKey, ssrUtils, startMeasure, stop, template, toClassSet, toDisplayString, toHandlerKey, toHandlers, toRaw, toRef, toRefs, toStyleMap, toValue, transformVNodeArgs, triggerRef, txt, unref, unregisterHMR, useAsyncComponentState, useAttrs, useCssModule, useCssVars, useHost, useId, useModel, useSSRContext, useShadowRoot, useSlots, useTemplateRef, useTransitionState, vModelCheckbox, vModelCheckboxInit, vModelCheckboxUpdate, vModelDynamic, getValue as vModelGetValue, vModelRadio, vModelSelect, vModelSelectInit, vModelSetSelected, vModelText, vModelTextInit, vModelTextUpdate, vShow, vShowHidden, vShowOriginalDisplay, validateComponentName, validateProps, vaporInteropPlugin, version, warn, warnPropMismatch, watch, watchEffect, watchPostEffect, watchSyncEffect, withAsyncContext, withCtx, withDefaults, withDirectives, withKeys, withMemo, withModifiers, withScopeId, withVaporDirectives };
