@@ -19,6 +19,8 @@ import {
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
 
 const _hoisted_1 = { key: 0 };
+const _hoisted_2 = { key: 1 };
+
 
 const __sfc__ = {
   __name: "Comp",
@@ -41,7 +43,7 @@ const __sfc__ = {
                   _toDisplayString(__props.item),
                 1 /* TEXT */
               ))
-            : _createCommentVNode("v-if", true),
+            : (_openBlock(), _createElementBlock("h2", _hoisted_2, "foo")),
           _withDirectives(
             _createElementVNode(
               "input",
@@ -68,14 +70,14 @@ const __sfc__ = {
             }),
             64 /* STABLE_FRAGMENT */
           )),
-          _renderSlot(_ctx.$slots, "default"),
           _cache[1] ||
             (_cache[1] = _createElementVNode(
               "span",
               null,
-              null,
+              "1",
               -1 /* CACHED */
             )),
+          _renderSlot(_ctx.$slots, "default"),
         ])
       );
     };

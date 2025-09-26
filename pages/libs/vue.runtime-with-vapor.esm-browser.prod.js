@@ -3812,6 +3812,9 @@ function createHydrationFunctions(rendererInternals) {
         );
       }
     }
+    if (node && node.nodeType === 3 && !node.data.trim()) {
+      node = nextSibling(node);
+    }
     return node;
   };
   const hydrateFragment = (node, vnode, parentComponent, parentSuspense, slotScopeIds, optimized) => {
@@ -11136,16 +11139,36 @@ const compile = (_template) => {
   return NOOP;
 };
 
+let insertionParent;
+let insertionAnchor;
+function setInsertionState(parent, anchor) {
+  insertionParent = parent;
+  if (anchor !== void 0) {
+    if (isHydrating) {
+      insertionAnchor = anchor;
+      if (insertionParent.$prevDynamicCount === void 0) {
+        insertionParent.$lastLogicalChild = null;
+      }
+    } else {
+      insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
+      if (anchor === 0 && !parent.$prependAnchor) {
+        parent.$prependAnchor = parent.firstChild;
+      }
+    }
+  } else {
+    insertionAnchor = void 0;
+  }
+}
+function resetInsertionState() {
+  insertionParent = insertionAnchor = void 0;
+}
+
 function createElement(tagName) {
   return document.createElement(tagName);
 }
 // @__NO_SIDE_EFFECTS__
 function createTextNode(value = "") {
   return document.createTextNode(value);
-}
-// @__NO_SIDE_EFFECTS__
-function createComment(data) {
-  return document.createComment(data);
 }
 // @__NO_SIDE_EFFECTS__
 function querySelector(selectors) {
@@ -11166,65 +11189,61 @@ const __txt = /* @__NO_SIDE_EFFECTS__ */ (node) => {
 };
 // @__NO_SIDE_EFFECTS__
 function _child(node) {
-  const children = node.$children;
-  return children ? children[0] : node.firstChild;
+  return node.firstChild;
 }
 // @__NO_SIDE_EFFECTS__
-function __child(node) {
-  return /* @__PURE__ */ __nthChild(node, 0);
+function __child(node, logicalIndex) {
+  return /* @__PURE__ */ __nthChild(node, 0, logicalIndex);
 }
 // @__NO_SIDE_EFFECTS__
 function _nthChild(node, i) {
-  const children = node.$children;
-  return children ? children[i] : node.childNodes[i];
+  return node.childNodes[i];
+}
+function locateChildByLogicalIndex(node, logicalIndex) {
+  let child2 = node.$lastLogicalChild || node.firstChild;
+  let currentIndex = child2.$idx || 0;
+  while (child2) {
+    if (currentIndex === logicalIndex) {
+      child2.$idx = logicalIndex;
+      return node.$lastLogicalChild = child2;
+    }
+    child2 = isComment(child2, "[") ? (
+      // fragment start: jump to the node after the matching end anchor
+      locateEndAnchor(child2).nextSibling
+    ) : child2.nextSibling;
+    currentIndex++;
+  }
+  return null;
 }
 // @__NO_SIDE_EFFECTS__
-function __nthChild(node, i) {
-  const parent = node;
-  if (parent.$idxMap) {
-    const {
-      $prevDynamicCount: prevDynamicCount = 0,
-      $anchorCount: anchorCount = 0,
-      $idxMap: idxMap,
-      $indexOffset: indexOffset = 0
-    } = parent;
-    const logicalIndex = prevDynamicCount - anchorCount + i;
-    const realIndex = idxMap[logicalIndex] + indexOffset;
-    return node.childNodes[realIndex];
-  }
-  return node.childNodes[i];
+function __nthChild(node, i, logicalIndex) {
+  return locateChildByLogicalIndex(node, logicalIndex);
 }
 // @__NO_SIDE_EFFECTS__
 function _next(node) {
-  const children = node.parentNode.$children;
-  return children ? children[node.$idx + 1] : node.nextSibling;
-}
-// @__NO_SIDE_EFFECTS__
-function __next(node) {
-  const parent = node.parentNode;
-  if (parent.$idxMap) {
-    const { $idxMap: idxMap, $indexOffset: indexOffset = 0 } = parent;
-    const { $idx, $uc: usedCount = 0 } = node;
-    const logicalIndex = $idx + usedCount + 1;
-    const realIndex = idxMap[logicalIndex] + indexOffset;
-    return node.parentNode.childNodes[realIndex];
-  }
   return node.nextSibling;
 }
-const txt = /* @__NO_SIDE_EFFECTS__ */ (node) => {
-  return txt.impl(node);
+// @__NO_SIDE_EFFECTS__
+function __next(node, logicalIndex) {
+  return locateChildByLogicalIndex(
+    node.parentNode,
+    logicalIndex
+  );
+}
+const txt = /* @__NO_SIDE_EFFECTS__ */ (...args) => {
+  return txt.impl(...args);
 };
-txt.impl = _child;
-const child = /* @__NO_SIDE_EFFECTS__ */ (node) => {
-  return child.impl(node);
+txt.impl = _txt;
+const child = /* @__NO_SIDE_EFFECTS__ */ (...args) => {
+  return child.impl(...args);
 };
 child.impl = _child;
-const next = /* @__NO_SIDE_EFFECTS__ */ (node) => {
-  return next.impl(node);
+const next = /* @__NO_SIDE_EFFECTS__ */ (...args) => {
+  return next.impl(...args);
 };
 next.impl = _next;
-const nthChild = /* @__NO_SIDE_EFFECTS__ */ (node, i) => {
-  return nthChild.impl(node, i);
+const nthChild = /* @__NO_SIDE_EFFECTS__ */ (...args) => {
+  return nthChild.impl(...args);
 };
 nthChild.impl = _nthChild;
 function enableHydrationNodeLookup() {
@@ -11240,140 +11259,17 @@ function disableHydrationNodeLookup() {
   nthChild.impl = _nthChild;
 }
 
-let t;
-let currentTemplateFn = void 0;
-function resetTemplateFn() {
-  currentTemplateFn = void 0;
-}
-/*! #__NO_SIDE_EFFECTS__ */
-// @__NO_SIDE_EFFECTS__
-function template(html, root) {
-  let node;
-  const fn = () => {
-    if (isHydrating) {
-      currentTemplateFn = fn;
-      const adopted = adoptTemplate(currentHydrationNode, html);
-      if (root) adopted.$root = true;
-      return adopted;
-    }
-    if (html[0] !== "<") {
-      return createTextNode(html);
-    }
-    if (!node) {
-      t = t || createElement("template");
-      t.innerHTML = html;
-      node = child(t.content);
-    }
-    const ret = node.cloneNode(true);
-    if (root) ret.$root = true;
-    return ret;
-  };
-  return fn;
-}
-
-let insertionParent;
-let insertionAnchor;
-function setInsertionState(parent, anchor) {
-  insertionParent = parent;
-  if (anchor !== void 0) {
-    if (isHydrating) {
-      insertionAnchor = anchor;
-      initializeHydrationState(parent);
-      resetTemplateFn();
-    } else {
-      insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
-      cacheTemplateChildren(parent);
-    }
-  } else {
-    insertionAnchor = void 0;
-  }
-}
-function initializeHydrationState(parent) {
-  if (!parent.$idxMap) {
-    const childNodes = parent.childNodes;
-    const len = childNodes.length;
-    if (len === 1 || len === 3 && isComment(childNodes[0], "[") && isComment(childNodes[2], "]")) {
-      insertionAnchor = void 0;
-      return;
-    }
-    if (currentTemplateFn) {
-      if (currentTemplateFn.$idxMap) {
-        const idxMap = parent.$idxMap = currentTemplateFn.$idxMap;
-        for (let i = 0; i < idxMap.length; i++) {
-          childNodes[idxMap[i]].$idx = i;
-        }
-      } else {
-        parent.$idxMap = currentTemplateFn.$idxMap = buildLogicalIndexMap(
-          len,
-          childNodes
-        );
-      }
-    } else {
-      parent.$idxMap = buildLogicalIndexMap(len, childNodes);
-    }
-    parent.$prevDynamicCount = 0;
-    parent.$anchorCount = 0;
-    parent.$appendIndex = null;
-    parent.$indexOffset = 0;
-  }
-}
-function buildLogicalIndexMap(len, childNodes) {
-  const idxMap = new Array();
-  let logicalIndex = 0;
-  for (let i = 0; i < len; i++) {
-    const n = childNodes[i];
-    n.$idx = logicalIndex;
-    if (n.nodeType === 8) {
-      const data = n.data;
-      if (data === "[") {
-        idxMap[logicalIndex++] = i;
-        let depth = 1;
-        let j = i + 1;
-        for (; j < len; j++) {
-          const c = childNodes[j];
-          if (c.nodeType === 8) {
-            const d = c.data;
-            if (d === "[") depth++;
-            else if (d === "]") {
-              depth--;
-              if (depth === 0) break;
-            }
-          }
-        }
-        i = j;
-        continue;
-      }
-    }
-    idxMap[logicalIndex++] = i;
-  }
-  return idxMap;
-}
-function cacheTemplateChildren(parent) {
-  if (!parent.$children) {
-    const nodes = parent.childNodes;
-    const len = nodes.length;
-    if (len === 0) return;
-    const children = new Array(len);
-    for (let i = 0; i < len; i++) {
-      const node = nodes[i];
-      node.$idx = i;
-      children[i] = node;
-    }
-    parent.$children = children;
-  }
-}
-function resetInsertionState() {
-  insertionParent = insertionAnchor = void 0;
-}
-function incrementIndexOffset(parent) {
-  if (parent.$indexOffset !== void 0) {
-    parent.$indexOffset++;
-  }
-}
-
 const isHydratingStack = [];
 let isHydrating = false;
 let currentHydrationNode = null;
+function runWithoutHydration(fn) {
+  try {
+    isHydrating = false;
+    return fn();
+  } finally {
+    isHydrating = true;
+  }
+}
 let isOptimized$1 = false;
 function performHydration(fn, setup, cleanup) {
   if (!isOptimized$1) {
@@ -11383,12 +11279,9 @@ function performHydration(fn, setup, cleanup) {
     Node.prototype.$pns = void 0;
     Node.prototype.$uc = void 0;
     Node.prototype.$idx = void 0;
-    Node.prototype.$children = void 0;
-    Node.prototype.$idxMap = void 0;
     Node.prototype.$prevDynamicCount = void 0;
     Node.prototype.$anchorCount = void 0;
     Node.prototype.$appendIndex = void 0;
-    Node.prototype.$indexOffset = void 0;
     isOptimized$1 = true;
   }
   enableHydrationNodeLookup();
@@ -11435,7 +11328,6 @@ function adoptTemplateImpl(node, template) {
       if (template.trim() === "" && isComment(node, "]") && isComment(node.previousSibling, "[")) {
         const parent = parentNode(node);
         node = parent.insertBefore(createTextNode(), node);
-        incrementIndexOffset(parent);
         break;
       }
     }
@@ -11453,22 +11345,21 @@ function adoptTemplateImpl(node, template) {
 }
 function locateHydrationNodeImpl() {
   let node;
-  let idxMap;
-  if (insertionAnchor !== void 0 && (idxMap = insertionParent.$idxMap)) {
+  if (insertionAnchor !== void 0) {
     const {
       $prevDynamicCount: prevDynamicCount = 0,
       $appendIndex: appendIndex,
-      $indexOffset: indexOffset = 0,
       $anchorCount: anchorCount = 0
     } = insertionParent;
     if (insertionAnchor === 0) {
-      const realIndex = idxMap[prevDynamicCount] + indexOffset;
-      node = insertionParent.childNodes[realIndex];
+      node = locateChildByLogicalIndex(insertionParent, prevDynamicCount);
     } else if (insertionAnchor instanceof Node) {
       let { $idx, $uc: usedCount } = insertionAnchor;
       if (usedCount !== void 0) {
-        const realIndex = idxMap[$idx + usedCount + 1] + indexOffset;
-        node = insertionParent.childNodes[realIndex];
+        node = locateChildByLogicalIndex(
+          insertionParent,
+          ($idx || 0) + usedCount + 1
+        );
         usedCount++;
       } else {
         node = insertionAnchor;
@@ -11477,17 +11368,16 @@ function locateHydrationNodeImpl() {
       }
       insertionAnchor.$uc = usedCount;
     } else {
-      let realIndex;
       if (appendIndex !== null && appendIndex !== void 0) {
-        realIndex = idxMap[appendIndex + 1] + indexOffset;
-        node = insertionParent.childNodes[realIndex];
+        node = locateChildByLogicalIndex(insertionParent, appendIndex + 1);
       } else {
         if (insertionAnchor === null) {
-          realIndex = idxMap[0] + indexOffset;
-          node = insertionParent.childNodes[realIndex];
+          node = locateChildByLogicalIndex(insertionParent, 0);
         } else {
-          realIndex = idxMap[prevDynamicCount + insertionAnchor] + indexOffset;
-          node = insertionParent.childNodes[realIndex];
+          node = locateChildByLogicalIndex(
+            insertionParent,
+            prevDynamicCount + insertionAnchor
+          );
         }
       }
       insertionParent.$appendIndex = node.$idx;
@@ -11551,7 +11441,7 @@ function handleMismatch(node, template) {
   }
   const t = createElement("template");
   t.innerHTML = template;
-  const newNode = child(t.content).cloneNode(true);
+  const newNode = _child(t.content).cloneNode(true);
   newNode.innerHTML = node.innerHTML;
   Array.from(node.attributes).forEach((attr) => {
     newNode.setAttribute(attr.name, attr.value);
@@ -11616,7 +11506,6 @@ function renderEffect(fn, noLifecycle = false) {
     effect.fn = fn;
   }
   effect.run();
-  return effect;
 }
 
 const decorate$1 = (t) => {
@@ -11884,12 +11773,12 @@ class DynamicFragment extends VaporFragment {
         }
       }
       const { parentNode, nextSibling } = findLastChild(this);
-      parentNode.insertBefore(
-        this.anchor = createComment(this.anchorLabel),
-        nextSibling
-      );
-      incrementIndexOffset(parentNode);
-      advanceHydrationNode(this.anchor);
+      queuePostFlushCb(() => {
+        parentNode.insertBefore(
+          this.anchor = createTextNode(),
+          nextSibling
+        );
+      });
     };
     if (isHydrating) {
       locateHydrationNode();
@@ -11992,130 +11881,8 @@ function findLastChild(node) {
   } else if (isVaporComponent(node)) {
     return findLastChild(node.block);
   } else {
-    if (node instanceof DynamicFragment && node.anchor) return node.anchor;
+    if (node.anchor) return node.anchor;
     return findLastChild(node.nodes);
-  }
-}
-
-function isValidBlock(block) {
-  if (block instanceof Node) {
-    return !(block instanceof Comment);
-  } else if (isVaporComponent(block)) {
-    return isValidBlock(block.block);
-  } else if (isArray(block)) {
-    return block.length > 0 && block.some(isValidBlock);
-  } else {
-    return isValidBlock(block.nodes);
-  }
-}
-function insert(block, parent, anchor = null, parentSuspense) {
-  anchor = anchor === 0 ? child(parent) : anchor;
-  if (block instanceof Node) {
-    if (!isHydrating) {
-      if (block instanceof Element && block.$transition && !block.$transition.disabled) {
-        performTransitionEnter(
-          block,
-          block.$transition,
-          () => parent.insertBefore(block, anchor),
-          parentSuspense
-        );
-      } else {
-        parent.insertBefore(block, anchor);
-      }
-    }
-  } else if (isVaporComponent(block)) {
-    if (block.isMounted) {
-      insert(block.block, parent, anchor);
-    } else {
-      mountComponent(block, parent, anchor);
-    }
-  } else if (isArray(block)) {
-    for (const b of block) {
-      insert(b, parent, anchor);
-    }
-  } else {
-    if (block.anchor) {
-      insert(block.anchor, parent, anchor);
-      anchor = block.anchor;
-    }
-    if (block.insert) {
-      block.insert(parent, anchor, block.$transition);
-    } else {
-      insert(block.nodes, parent, anchor, parentSuspense);
-    }
-  }
-}
-function prepend(parent, ...blocks) {
-  let i = blocks.length;
-  while (i--) insert(blocks[i], parent, 0);
-}
-function remove(block, parent) {
-  if (block instanceof Node) {
-    if (block.$transition && block instanceof Element) {
-      performTransitionLeave(
-        block,
-        block.$transition,
-        () => parent && parent.removeChild(block)
-      );
-    } else {
-      parent && parent.removeChild(block);
-    }
-  } else if (isVaporComponent(block)) {
-    unmountComponent(block, parent);
-  } else if (isArray(block)) {
-    for (let i = 0; i < block.length; i++) {
-      remove(block[i], parent);
-    }
-  } else {
-    if (block.remove) {
-      block.remove(parent, block.$transition);
-    } else {
-      remove(block.nodes, parent);
-    }
-    if (block.anchor) remove(block.anchor, parent);
-    if (block.scope) {
-      block.scope.stop();
-    }
-  }
-}
-function normalizeAnchor(node) {
-  if (node && node instanceof Node) {
-    return node;
-  } else if (isArray(node)) {
-    return normalizeAnchor(node[0]);
-  } else if (isVaporComponent(node)) {
-    return normalizeAnchor(node.block);
-  } else {
-    return normalizeAnchor(node.nodes);
-  }
-}
-function setScopeId(block, scopeId) {
-  if (block instanceof Element) {
-    block.setAttribute(scopeId, "");
-  } else if (isVaporComponent(block)) {
-    setScopeId(block.block, scopeId);
-  } else if (isArray(block)) {
-    for (const b of block) {
-      setScopeId(b, scopeId);
-    }
-  } else if (isFragment(block)) {
-    setScopeId(block.nodes, scopeId);
-  }
-}
-function setComponentScopeId(instance) {
-  const parent = instance.parent;
-  if (!parent) return;
-  if (isArray(instance.block) && instance.block.length > 1) return;
-  const scopeId = parent.type.__scopeId;
-  if (scopeId) {
-    setScopeId(instance.block, scopeId);
-  }
-  if (parent.subTree && parent.subTree.component === instance && parent.vnode.scopeId) {
-    setScopeId(instance.block, parent.vnode.scopeId);
-    const scopeIds = getInheritedScopeIds(parent.vnode, parent.parent);
-    for (const id of scopeIds) {
-      setScopeId(instance.block, id);
-    }
   }
 }
 
@@ -12326,15 +12093,6 @@ function setElementText(el, value) {
 }
 function setHtml(el, value) {
   value = value == null ? "" : value;
-  if (isHydrating) {
-    if (el.innerHTML === value) {
-      el.$html = value;
-      return;
-    }
-    if (!isMismatchAllowed(el, 1)) {
-      logMismatchError();
-    }
-  }
   if (el.$html !== value) {
     el.innerHTML = el.$html = value;
   }
@@ -12384,8 +12142,7 @@ function optimizePropertyLookup() {
   const proto = Element.prototype;
   proto.$transition = void 0;
   proto.$key = void 0;
-  proto.$evtclick = void 0;
-  proto.$children = void 0;
+  proto.$prependAnchor = proto.$evtclick = void 0;
   proto.$idx = void 0;
   proto.$root = false;
   proto.$html = proto.$txt = proto.$cls = proto.$sty = Text.prototype.$txt = "";
@@ -12401,9 +12158,7 @@ const interopKey = Symbol(`interop`);
 const vaporInteropImpl = {
   mount(vnode, container, anchor, parentComponent) {
     let selfAnchor = vnode.el = vnode.anchor = createTextNode();
-    if (!isHydrating) {
-      container.insertBefore(selfAnchor, anchor);
-    }
+    container.insertBefore(selfAnchor, anchor);
     const prev = currentInstance;
     simpleSetCurrentInstance(parentComponent);
     const props = {};
@@ -12439,11 +12194,6 @@ const vaporInteropImpl = {
         instance,
         vnode.transition
       );
-    }
-    if (isHydrating) {
-      (instance.m || (instance.m = [])).push(() => {
-        container.insertBefore(selfAnchor, anchor);
-      });
     }
     mountComponent(instance, container, selfAnchor);
     simpleSetCurrentInstance(prev);
@@ -13022,6 +12772,313 @@ const rawPropsProxyHandlers = {
   }
 };
 
+const VaporTeleportImpl = {
+  name: "VaporTeleport",
+  __isTeleport: true,
+  __vapor: true,
+  process(props, slots) {
+    return new TeleportFragment(props, slots);
+  }
+};
+class TeleportFragment extends VaporFragment {
+  constructor(props, slots) {
+    super([]);
+    this.insert = (container, anchor) => {
+      if (isHydrating) return;
+      this.placeholder = createTextNode();
+      insert(this.placeholder, container, anchor);
+      insert(this.anchor, container, anchor);
+      this.handlePropsUpdate();
+    };
+    this.remove = (parent = this.parent) => {
+      if (this.nodes) {
+        remove(this.nodes, this.mountContainer);
+        this.nodes = [];
+      }
+      if (this.targetStart) {
+        remove(this.targetStart, this.target);
+        this.targetStart = void 0;
+        remove(this.targetAnchor, this.target);
+        this.targetAnchor = void 0;
+      }
+      if (this.anchor) {
+        remove(this.anchor, this.anchor.parentNode);
+        this.anchor = void 0;
+      }
+      if (this.placeholder) {
+        remove(this.placeholder, parent);
+        this.placeholder = void 0;
+      }
+      this.mountContainer = void 0;
+      this.mountAnchor = void 0;
+    };
+    this.hydrate = () => {
+      const target = this.target = resolveTarget(
+        this.resolvedProps,
+        querySelector
+      );
+      const disabled = isTeleportDisabled(this.resolvedProps);
+      this.placeholder = currentHydrationNode;
+      if (target) {
+        const targetNode = target._lpa || target.firstChild;
+        if (disabled) {
+          this.hydrateDisabledTeleport(targetNode);
+        } else {
+          this.anchor = locateTeleportEndAnchor();
+          this.mountContainer = target;
+          let targetAnchor = targetNode;
+          while (targetAnchor) {
+            if (targetAnchor && targetAnchor.nodeType === 8) {
+              if (targetAnchor.data === "teleport start anchor") {
+                this.targetStart = targetAnchor;
+              } else if (targetAnchor.data === "teleport anchor") {
+                this.mountAnchor = this.targetAnchor = targetAnchor;
+                target._lpa = this.targetAnchor && this.targetAnchor.nextSibling;
+                break;
+              }
+            }
+            targetAnchor = targetAnchor.nextSibling;
+          }
+          if (targetNode) {
+            setCurrentHydrationNode(targetNode.nextSibling);
+          }
+          if (!this.targetAnchor) {
+            this.mount(target);
+          } else {
+            this.initChildren();
+          }
+        }
+      } else if (disabled) {
+        this.hydrateDisabledTeleport(currentHydrationNode);
+      }
+      advanceHydrationNode(this.anchor);
+    };
+    this.rawProps = props;
+    this.rawSlots = slots;
+    this.anchor = isHydrating ? void 0 : createTextNode();
+    renderEffect(() => {
+      this.resolvedProps = extend(
+        {},
+        new Proxy(
+          this.rawProps,
+          rawPropsProxyHandlers
+        )
+      );
+      this.handlePropsUpdate();
+    });
+    if (!isHydrating) {
+      this.initChildren();
+    }
+  }
+  get parent() {
+    return this.anchor ? this.anchor.parentNode : null;
+  }
+  initChildren() {
+    renderEffect(() => {
+      this.handleChildrenUpdate(
+        this.rawSlots.default && this.rawSlots.default()
+      );
+    });
+  }
+  handleChildrenUpdate(children) {
+    if (!this.parent || isHydrating) {
+      this.nodes = children;
+      return;
+    }
+    remove(this.nodes, this.mountContainer);
+    insert(this.nodes = children, this.mountContainer, this.mountAnchor);
+  }
+  handlePropsUpdate() {
+    if (!this.parent || isHydrating) return;
+    const mount = (parent, anchor) => {
+      insert(
+        this.nodes,
+        this.mountContainer = parent,
+        this.mountAnchor = anchor
+      );
+    };
+    const mountToTarget = () => {
+      const target = this.target = resolveTarget(
+        this.resolvedProps,
+        querySelector
+      );
+      if (target) {
+        if (
+          // initial mount into target
+          !this.targetAnchor || // target changed
+          this.targetAnchor.parentNode !== target
+        ) {
+          insert(this.targetStart = createTextNode(""), target);
+          insert(this.targetAnchor = createTextNode(""), target);
+        }
+        mount(target, this.targetAnchor);
+      }
+    };
+    if (isTeleportDisabled(this.resolvedProps)) {
+      mount(this.parent, this.anchor);
+    } else {
+      if (isTeleportDeferred(this.resolvedProps)) {
+        queuePostFlushCb(mountToTarget);
+      } else {
+        mountToTarget();
+      }
+    }
+  }
+  hydrateDisabledTeleport(targetNode) {
+    let nextNode = this.placeholder.nextSibling;
+    setCurrentHydrationNode(nextNode);
+    this.mountAnchor = this.anchor = locateTeleportEndAnchor(nextNode);
+    this.mountContainer = this.anchor.parentNode;
+    this.targetStart = targetNode;
+    this.targetAnchor = targetNode && targetNode.nextSibling;
+    this.initChildren();
+  }
+  mount(target) {
+    target.appendChild(this.targetStart = createTextNode(""));
+    target.appendChild(
+      this.mountAnchor = this.targetAnchor = createTextNode("")
+    );
+    if (!isMismatchAllowed(target, 1)) {
+      logMismatchError();
+    }
+    runWithoutHydration(this.initChildren.bind(this));
+  }
+}
+function isVaporTeleport(value) {
+  return value === VaporTeleportImpl;
+}
+function locateTeleportEndAnchor(node = currentHydrationNode) {
+  while (node) {
+    if (isComment(node, "teleport end")) {
+      return node;
+    }
+    node = node.nextSibling;
+  }
+  return null;
+}
+
+function isValidBlock(block) {
+  if (block instanceof Node) {
+    return !(block instanceof Comment);
+  } else if (isVaporComponent(block)) {
+    return isValidBlock(block.block);
+  } else if (isArray(block)) {
+    return block.length > 0 && block.some(isValidBlock);
+  } else {
+    return isValidBlock(block.nodes);
+  }
+}
+function insert(block, parent, anchor = null, parentSuspense) {
+  anchor = anchor === 0 ? parent.$prependAnchor || _child(parent) : anchor;
+  if (block instanceof Node) {
+    if (!isHydrating) {
+      if (block instanceof Element && block.$transition && !block.$transition.disabled) {
+        performTransitionEnter(
+          block,
+          block.$transition,
+          () => parent.insertBefore(block, anchor),
+          parentSuspense
+        );
+      } else {
+        parent.insertBefore(block, anchor);
+      }
+    }
+  } else if (isVaporComponent(block)) {
+    if (block.isMounted) {
+      insert(block.block, parent, anchor);
+    } else {
+      mountComponent(block, parent, anchor);
+    }
+  } else if (isArray(block)) {
+    for (const b of block) {
+      insert(b, parent, anchor);
+    }
+  } else {
+    if (block.anchor) {
+      insert(block.anchor, parent, anchor);
+      anchor = block.anchor;
+    }
+    if (block.insert) {
+      block.insert(parent, anchor, block.$transition);
+    } else {
+      insert(block.nodes, parent, anchor, parentSuspense);
+    }
+  }
+}
+function prepend(parent, ...blocks) {
+  let i = blocks.length;
+  while (i--) insert(blocks[i], parent, 0);
+}
+function remove(block, parent) {
+  if (block instanceof Node) {
+    if (block.$transition && block instanceof Element) {
+      performTransitionLeave(
+        block,
+        block.$transition,
+        () => parent && parent.removeChild(block)
+      );
+    } else {
+      parent && parent.removeChild(block);
+    }
+  } else if (isVaporComponent(block)) {
+    unmountComponent(block, parent);
+  } else if (isArray(block)) {
+    for (let i = 0; i < block.length; i++) {
+      remove(block[i], parent);
+    }
+  } else {
+    if (block.remove) {
+      block.remove(parent, block.$transition);
+    } else {
+      remove(block.nodes, parent);
+    }
+    if (block.anchor) remove(block.anchor, parent);
+    if (block.scope) {
+      block.scope.stop();
+    }
+  }
+}
+function normalizeAnchor(node) {
+  if (node && node instanceof Node) {
+    return node;
+  } else if (isArray(node)) {
+    return normalizeAnchor(node[0]);
+  } else if (isVaporComponent(node)) {
+    return normalizeAnchor(node.block);
+  } else {
+    return normalizeAnchor(node.nodes);
+  }
+}
+function setScopeId(block, scopeId) {
+  if (block instanceof Element) {
+    block.setAttribute(scopeId, "");
+  } else if (isVaporComponent(block)) {
+    setScopeId(block.block, scopeId);
+  } else if (isArray(block)) {
+    for (const b of block) {
+      setScopeId(b, scopeId);
+    }
+  } else if (isFragment(block)) {
+    setScopeId(block.nodes, scopeId);
+  }
+}
+function setComponentScopeId(instance) {
+  const parent = instance.parent;
+  if (!parent) return;
+  if (isArray(instance.block) && instance.block.length > 1) return;
+  const scopeId = parent.type.__scopeId;
+  if (scopeId) {
+    setScopeId(instance.block, scopeId);
+  }
+  if (parent.subTree && parent.subTree.component === instance && parent.vnode.scopeId) {
+    setScopeId(instance.block, parent.vnode.scopeId);
+    const scopeIds = getInheritedScopeIds(parent.vnode, parent.parent);
+    for (const id of scopeIds) {
+      setScopeId(instance.block, id);
+    }
+  }
+}
+
 const dynamicSlotsProxyHandlers = {
   get: getSlot,
   has: (target, key) => !!getSlot(target, key),
@@ -13151,117 +13208,6 @@ function hasForwardedSlot(block) {
   } else {
     return isForwardedSlot(block);
   }
-}
-
-const VaporTeleportImpl = {
-  name: "VaporTeleport",
-  __isTeleport: true,
-  __vapor: true,
-  process(props, slots) {
-    const frag = new TeleportFragment();
-    renderEffect(
-      () => frag.updateChildren(slots.default && slots.default())
-    );
-    renderEffect(() => {
-      frag.props = extend(
-        {},
-        new Proxy(props, rawPropsProxyHandlers)
-      );
-      frag.update();
-    });
-    return frag;
-  }
-};
-class TeleportFragment extends VaporFragment {
-  constructor() {
-    super([]);
-    this.insert = (container, anchor) => {
-      this.placeholder = createTextNode();
-      this.mainAnchor = createTextNode();
-      insert(this.placeholder, container, anchor);
-      insert(this.mainAnchor, container, anchor);
-      this.update();
-    };
-    this.remove = (parent = this.parent) => {
-      if (this.nodes) {
-        remove(this.nodes, this.currentParent);
-        this.nodes = [];
-      }
-      if (this.targetStart) {
-        remove(this.targetStart, this.target);
-        this.targetStart = void 0;
-        remove(this.targetAnchor, this.target);
-        this.targetAnchor = void 0;
-      }
-      if (this.placeholder) {
-        remove(this.placeholder, parent);
-        this.placeholder = void 0;
-        remove(this.mainAnchor, parent);
-        this.mainAnchor = void 0;
-      }
-      this.mountContainer = void 0;
-      this.mountAnchor = void 0;
-    };
-    this.hydrate = () => {
-    };
-    this.anchor = createTextNode();
-  }
-  get currentParent() {
-    return this.mountContainer || this.parent;
-  }
-  get currentAnchor() {
-    return this.mountAnchor || this.anchor;
-  }
-  get parent() {
-    return this.anchor && this.anchor.parentNode;
-  }
-  updateChildren(children) {
-    if (!this.parent) {
-      this.nodes = children;
-      return;
-    }
-    remove(this.nodes, this.currentParent);
-    insert(this.nodes = children, this.currentParent, this.currentAnchor);
-  }
-  update() {
-    if (!this.parent) return;
-    const mount = (parent, anchor) => {
-      insert(
-        this.nodes,
-        this.mountContainer = parent,
-        this.mountAnchor = anchor
-      );
-    };
-    const mountToTarget = () => {
-      const target = this.target = resolveTarget(
-        this.props,
-        querySelector
-      );
-      if (target) {
-        if (
-          // initial mount into target
-          !this.targetAnchor || // target changed
-          this.targetAnchor.parentNode !== target
-        ) {
-          insert(this.targetStart = createTextNode(""), target);
-          insert(this.targetAnchor = createTextNode(""), target);
-        }
-        mount(target, this.targetAnchor);
-      }
-    };
-    if (isTeleportDisabled(this.props)) {
-      mount(this.parent, this.mainAnchor);
-    } else {
-      if (isTeleportDeferred(this.props)) {
-        queuePostFlushCb(mountToTarget);
-      } else {
-        mountToTarget();
-      }
-    }
-  }
-}
-function isVaporTeleport(value) {
-  return value === VaporTeleportImpl;
 }
 
 function createComponent(component, rawProps, rawSlots, isSingleRoot, once, scopeId, appContext = currentInstance && currentInstance.appContext || emptyContext) {
@@ -13668,6 +13614,32 @@ function createInnerComp(comp, parent, frag) {
   );
   frag && frag.setRef && frag.setRef(instance);
   return instance;
+}
+
+let t;
+/*! #__NO_SIDE_EFFECTS__ */
+// @__NO_SIDE_EFFECTS__
+function template(html, root) {
+  let node;
+  const fn = () => {
+    if (isHydrating) {
+      const adopted = adoptTemplate(currentHydrationNode, html);
+      if (root) adopted.$root = true;
+      return adopted;
+    }
+    if (html[0] !== "<") {
+      return createTextNode(html);
+    }
+    if (!node) {
+      t = t || createElement("template");
+      t.innerHTML = html;
+      node = _child(t.content);
+    }
+    const ret = node.cloneNode(true);
+    if (root) ret.$root = true;
+    return ret;
+  };
+  return fn;
 }
 
 function createIf(condition, b1, b2, once) {
