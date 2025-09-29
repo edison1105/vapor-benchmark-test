@@ -13400,8 +13400,15 @@ function createComponentWithFallback(comp, rawProps, rawSlots, isSingleRoot, onc
 }
 function mountComponent(instance, parent, anchor) {
   if (instance.bm) invokeArrayFns(instance.bm);
-  insert(instance.block, parent, anchor);
-  if (!isHydrating) setComponentScopeId(instance);
+  const block = instance.block;
+  if (isHydrating) {
+    if (!(block instanceof Node) || isArray(block) && block.some((b) => !(b instanceof Node))) {
+      insert(block, parent, anchor);
+    }
+  } else {
+    insert(block, parent, anchor);
+    setComponentScopeId(instance);
+  }
   if (instance.m) queuePostFlushCb(() => invokeArrayFns(instance.m));
   instance.isMounted = true;
 }
@@ -13930,7 +13937,13 @@ const createFor = (src, renderItem, getKey, flags = 0, setup) => {
     if (frag.$transition) {
       applyTransitionHooks(block.nodes, frag.$transition, false);
     }
-    if (parent) insert(block.nodes, parent, anchor);
+    if (isHydrating) {
+      if (!(block.nodes instanceof Node) || isArray(block.nodes) && block.nodes.some((b) => !(b instanceof Node))) {
+        insert(block.nodes, parent, anchor);
+      }
+    } else if (parent) {
+      insert(block.nodes, parent, anchor);
+    }
     return block;
   };
   const update = ({ itemRef, keyRef, indexRef }, newItem, newKey, newIndex) => {

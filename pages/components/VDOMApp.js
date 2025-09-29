@@ -17,6 +17,8 @@ import {
   createCommentVNode as _createCommentVNode,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
 
+const _hoisted_1 = { key: 0 };
+
 import Comp from "./VDOMChild.js";
 
 const __sfc__ = {
@@ -28,24 +30,23 @@ const __sfc__ = {
     return (_ctx, _cache) => {
       return (
         _openBlock(),
-        _createElementBlock(
-          _Fragment,
-          null,
-          [
-            _createElementVNode(
-              "button",
-              {
-                onClick:
-                  _cache[0] ||
-                  (_cache[0] = ($event) => (show.value = !show.value)),
-              },
-              "toggle"
-            ),
-            show.value
-              ? (_openBlock(),
+        _createElementBlock("div", null, [
+          _createElementVNode(
+            "button",
+            {
+              onClick:
+                _cache[0] ||
+                (_cache[0] = ($event) => (show.value = !show.value)),
+            },
+            "toggle"
+          ),
+          show.value
+            ? (_openBlock(),
+              _createElementBlock("div", _hoisted_1, [
+                (_openBlock(),
                 _createElementBlock(
                   _Fragment,
-                  { key: 0 },
+                  null,
                   _renderList(window.ITEM_COUNT, (item) => {
                     return _createElementVNode("div", null, [
                       _createVNode(
@@ -68,11 +69,10 @@ const __sfc__ = {
                     ]);
                   }),
                   64 /* STABLE_FRAGMENT */
-                ))
-              : _createCommentVNode("v-if", true),
-          ],
-          64 /* STABLE_FRAGMENT */
-        )
+                )),
+              ]))
+            : _createCommentVNode("v-if", true),
+        ])
       );
     };
   },
