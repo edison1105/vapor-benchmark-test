@@ -3812,9 +3812,6 @@ function createHydrationFunctions(rendererInternals) {
         );
       }
     }
-    if (node && node.nodeType === 3 && !node.data.trim()) {
-      node = nextSibling(node);
-    }
     return node;
   };
   const hydrateFragment = (node, vnode, parentComponent, parentSuspense, slotScopeIds, optimized) => {
@@ -11192,31 +11189,15 @@ function _child(node) {
   return node.firstChild;
 }
 // @__NO_SIDE_EFFECTS__
-function __child(node, logicalIndex) {
-  return /* @__PURE__ */ __nthChild(node, 0, logicalIndex);
+function __child(node, logicalIndex = 0) {
+  return locateChildByLogicalIndex(node, logicalIndex);
 }
 // @__NO_SIDE_EFFECTS__
 function _nthChild(node, i) {
   return node.childNodes[i];
 }
-function locateChildByLogicalIndex(node, logicalIndex) {
-  let child2 = node.$lastLogicalChild || node.firstChild;
-  let currentIndex = child2.$idx || 0;
-  while (child2) {
-    if (currentIndex === logicalIndex) {
-      child2.$idx = logicalIndex;
-      return node.$lastLogicalChild = child2;
-    }
-    child2 = isComment(child2, "[") ? (
-      // fragment start: jump to the node after the matching end anchor
-      locateEndAnchor(child2).nextSibling
-    ) : child2.nextSibling;
-    currentIndex++;
-  }
-  return null;
-}
 // @__NO_SIDE_EFFECTS__
-function __nthChild(node, i, logicalIndex) {
+function __nthChild(node, logicalIndex) {
   return locateChildByLogicalIndex(node, logicalIndex);
 }
 // @__NO_SIDE_EFFECTS__
@@ -11257,6 +11238,22 @@ function disableHydrationNodeLookup() {
   child.impl = _child;
   next.impl = _next;
   nthChild.impl = _nthChild;
+}
+function locateChildByLogicalIndex(parent, logicalIndex) {
+  let child2 = parent.$lastLogicalChild || parent.firstChild;
+  let fromIndex = child2.$idx || 0;
+  while (child2) {
+    if (fromIndex === logicalIndex) {
+      child2.$idx = logicalIndex;
+      return parent.$lastLogicalChild = child2;
+    }
+    child2 = isComment(child2, "[") ? (
+      // fragment start: jump to the node after the matching end anchor
+      locateEndAnchor(child2).nextSibling
+    ) : child2.nextSibling;
+    fromIndex++;
+  }
+  return null;
 }
 
 const isHydratingStack = [];
@@ -11352,17 +11349,17 @@ function locateHydrationNodeImpl() {
       $anchorCount: anchorCount = 0
     } = insertionParent;
     if (insertionAnchor === 0) {
-      node = locateChildByLogicalIndex(insertionParent, prevDynamicCount);
+      node = prevDynamicCount === 0 && currentHydrationNode.parentNode === insertionParent ? currentHydrationNode : locateChildByLogicalIndex(insertionParent, prevDynamicCount);
     } else if (insertionAnchor instanceof Node) {
       let { $idx, $uc: usedCount } = insertionAnchor;
       if (usedCount !== void 0) {
         node = locateChildByLogicalIndex(
           insertionParent,
-          ($idx || 0) + usedCount + 1
+          $idx + usedCount + 1
         );
         usedCount++;
       } else {
-        node = insertionAnchor;
+        insertionParent.$lastLogicalChild = node = insertionAnchor;
         insertionParent.$anchorCount = anchorCount + 1;
         usedCount = 0;
       }
@@ -11372,7 +11369,7 @@ function locateHydrationNodeImpl() {
         node = locateChildByLogicalIndex(insertionParent, appendIndex + 1);
       } else {
         if (insertionAnchor === null) {
-          node = locateChildByLogicalIndex(insertionParent, 0);
+          node = currentHydrationNode.parentNode === insertionParent ? currentHydrationNode : locateChildByLogicalIndex(insertionParent, 0);
         } else {
           node = locateChildByLogicalIndex(
             insertionParent,
@@ -11407,14 +11404,6 @@ function locateEndAnchor(node, open = "[", close = "]") {
         if (stack.length === 0) return node;
       }
     }
-  }
-  return null;
-}
-function locateFragmentEndAnchor(label = "]") {
-  let node = currentHydrationNode;
-  while (node) {
-    if (isComment(node, label)) return node;
-    node = node.nextSibling;
   }
   return null;
 }
@@ -11753,7 +11742,7 @@ class DynamicFragment extends VaporFragment {
     this.hydrate = (isEmpty = false) => {
       if (this.anchor) return;
       if (this.anchorLabel === "if" && isEmpty) {
-        this.anchor = locateFragmentEndAnchor("");
+        this.anchor = currentHydrationNode;
         if (!this.anchor) {
           throw new Error("Failed to locate if anchor");
         } else {
@@ -11765,7 +11754,7 @@ class DynamicFragment extends VaporFragment {
           this.anchor = currentHydrationNode;
           return;
         }
-        this.anchor = locateFragmentEndAnchor();
+        this.anchor = currentHydrationNode;
         if (!this.anchor) {
           throw new Error("Failed to locate slot anchor");
         } else {
@@ -12158,7 +12147,11 @@ const interopKey = Symbol(`interop`);
 const vaporInteropImpl = {
   mount(vnode, container, anchor, parentComponent) {
     let selfAnchor = vnode.el = vnode.anchor = createTextNode();
-    container.insertBefore(selfAnchor, anchor);
+    if (isHydrating) {
+      queuePostFlushCb(() => container.insertBefore(selfAnchor, anchor));
+    } else {
+      container.insertBefore(selfAnchor, anchor);
+    }
     const prev = currentInstance;
     simpleSetCurrentInstance(parentComponent);
     const props = {};
@@ -12258,8 +12251,7 @@ const vaporInteropImpl = {
     const propsRef = vnode.vs.ref = shallowRef(vnode.props);
     hydrateNode(node, () => {
       vnode.vb = slot(new Proxy(propsRef, vaporSlotPropsProxyHandler));
-      vnode.el = currentHydrationNode;
-      vnode.anchor = locateFragmentEndAnchor();
+      vnode.anchor = vnode.el = currentHydrationNode;
     });
     return _next(vnode.anchor);
   }
@@ -13711,21 +13703,21 @@ const createFor = (src, renderItem, getKey, flags = 0, setup) => {
     const prevSub = setActiveSub();
     if (!isMounted) {
       isMounted = true;
+      let prevNodes;
       for (let i = 0; i < newLength; i++) {
         if (isHydrating && isComponent && i > 0) {
-          setCurrentHydrationNode(
-            findLastChild(newBlocks[i - 1].nodes).nextSibling
-          );
+          setCurrentHydrationNode(findLastChild(prevNodes).nextSibling);
         }
-        mount(source, i);
+        prevNodes = mount(source, i).nodes;
       }
       if (isHydrating) {
         if (isComponent) {
-          setCurrentHydrationNode(
-            findLastChild(newBlocks[newLength - 1].nodes).nextSibling
-          );
+          setCurrentHydrationNode(findLastChild(prevNodes).nextSibling);
         }
-        parentAnchor = locateFragmentEndAnchor();
+        parentAnchor = newLength === 0 ? currentHydrationNode.nextSibling : currentHydrationNode;
+        if (!parentAnchor || parentAnchor && !isComment(parentAnchor, "]")) {
+          throw new Error(`v-for fragment anchor node was not found.`);
+        }
       }
     } else {
       parent = parent || parentAnchor.parentNode;

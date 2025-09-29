@@ -18,6 +18,7 @@ import {
   createSlot as _createSlot,
   applyTextModel as _applyTextModel,
   template as _template,
+  child as _child,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
 const t0 = _template("<h1> </h1>");
 const t1 = _template("<h2>foo</h2>");
@@ -33,7 +34,7 @@ const __sfc__ = {
     const show = ref(true);
 
     const n10 = t3();
-    const n5 = _nthChild(n10, 1, 1);
+    const n5 = _child(n10, 1)
     const n11 = _next(n5, 2);
     _setInsertionState(n10, 0);
     const n0 = _createIf(
