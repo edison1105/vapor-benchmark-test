@@ -1,4 +1,4 @@
-import { startBrowser, wait, getScriptingEntries, removeFile } from "./utils.js";
+import { startBrowser, wait, forceGC, getScriptingEntries, removeFile } from "./utils.js";
 
 async function runBenchmark(url) {
   const browser = await startBrowser();
@@ -13,6 +13,7 @@ async function runBenchmark(url) {
 
     await page.goto(url, { waitUntil: "networkidle" });
     await wait(2000);
+    await forceGC(page);
 
     // await browser.stopTracing();
     // const entries = await getScriptingEntries(tracingFile);
@@ -44,7 +45,7 @@ async function runTests() {
     "http://localhost:3000/pages/vapor-hydration",
   ];
 
-  const numTests = 10;
+  const numTests = 20;
   const results = [];
   for (const url of pages) {
     let total = 0;

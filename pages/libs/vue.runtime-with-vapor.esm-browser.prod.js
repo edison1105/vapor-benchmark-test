@@ -4136,28 +4136,14 @@ function defineAsyncComponent(source) {
     name: "AsyncComponentWrapper",
     __asyncLoader: load,
     __asyncHydrate(el, instance, hydrate) {
-      let patched = false;
-      (instance.bu || (instance.bu = [])).push(() => patched = true);
-      const performHydrate = () => {
-        if (patched) {
-          return;
-        }
-        hydrate();
-      };
-      const doHydrate = hydrateStrategy ? () => {
-        const teardown = hydrateStrategy(
-          performHydrate,
-          (cb) => forEachElement(el, cb)
-        );
-        if (teardown) {
-          (instance.bum || (instance.bum = [])).push(teardown);
-        }
-      } : performHydrate;
-      if (getResolvedComp()) {
-        doHydrate();
-      } else {
-        load().then(() => !instance.isUnmounted && doHydrate());
-      }
+      performAsyncHydrate(
+        el,
+        instance,
+        hydrate,
+        getResolvedComp,
+        load,
+        hydrateStrategy
+      );
     },
     get __asyncResolved() {
       return getResolvedComp();
@@ -4179,14 +4165,7 @@ function defineAsyncComponent(source) {
         );
       };
       if (suspensible && instance.suspense || isInSSRComponentSetup) {
-        return load().then((comp) => {
-          return () => createInnerComp$1(comp, instance);
-        }).catch((err) => {
-          onError(err);
-          return () => errorComponent ? createVNode(errorComponent, {
-            error: err
-          }) : null;
-        });
+        return loadInnerComponent(instance, load, onError, errorComponent);
       }
       const { loaded, error, delayed } = useAsyncComponentState(
         delay,
@@ -4289,6 +4268,40 @@ const useAsyncComponentState = (delay, timeout, onError) => {
   }
   return { loaded, error, delayed };
 };
+function loadInnerComponent(instance, load, onError, errorComponent) {
+  return load().then((comp) => {
+    return () => createInnerComp$1(comp, instance);
+  }).catch((err) => {
+    onError(err);
+    return () => errorComponent ? createVNode(errorComponent, {
+      error: err
+    }) : null;
+  });
+}
+function performAsyncHydrate(el, instance, hydrate, getResolvedComp, load, hydrateStrategy) {
+  let patched = false;
+  (instance.bu || (instance.bu = [])).push(() => patched = true);
+  const performHydrate = () => {
+    if (patched) {
+      return;
+    }
+    hydrate();
+  };
+  const doHydrate = hydrateStrategy ? () => {
+    const teardown = hydrateStrategy(
+      performHydrate,
+      (cb) => forEachElement(el, cb)
+    );
+    if (teardown) {
+      (instance.bum || (instance.bum = [])).push(teardown);
+    }
+  } : performHydrate;
+  if (getResolvedComp()) {
+    doHydrate();
+  } else {
+    load().then(() => !instance.isUnmounted && doHydrate());
+  }
+}
 
 const isKeepAlive = (vnode) => vnode.type.__isKeepAlive;
 const KeepAliveImpl = {
@@ -6611,7 +6624,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       instance.ctx.renderer = internals;
     }
     {
-      setupComponent(instance, false, optimized);
+      setupComponent$1(instance, false, optimized);
     }
     if (instance.asyncDep) {
       parentSuspense && parentSuspense.registerDep(instance, setupRenderEffect, optimized);
@@ -9134,7 +9147,7 @@ function validateComponentName(name, { isNativeTag }) {
 function isStatefulComponent(instance) {
   return instance.vnode.shapeFlag & 4;
 }
-function setupComponent(instance, isSSR = false, optimized = false) {
+function setupComponent$1(instance, isSSR = false, optimized = false) {
   isSSR && setInSSRSetupState(isSSR);
   const { props, children, vi } = instance.vnode;
   const isStateful = isStatefulComponent(instance);
@@ -9387,7 +9400,7 @@ const devtools = void 0;
 const setDevtoolsHook = NOOP;
 const _ssrUtils = {
   createComponentInstance,
-  setupComponent,
+  setupComponent: setupComponent$1,
   renderComponentRoot,
   setCurrentRenderingInstance,
   isVNode: isVNode,
@@ -11143,13 +11156,10 @@ function setInsertionState(parent, anchor) {
   if (anchor !== void 0) {
     if (isHydrating) {
       insertionAnchor = anchor;
-      if (insertionParent.$prevDynamicCount === void 0) {
-        insertionParent.$lastLogicalChild = null;
-      }
     } else {
       insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
-      if (anchor === 0 && !parent.$prependAnchor) {
-        parent.$prependAnchor = parent.firstChild;
+      if (anchor === 0 && !parent.$fc) {
+        parent.$fc = parent.firstChild;
       }
     }
   } else {
@@ -11240,12 +11250,12 @@ function disableHydrationNodeLookup() {
   nthChild.impl = _nthChild;
 }
 function locateChildByLogicalIndex(parent, logicalIndex) {
-  let child2 = parent.$lastLogicalChild || parent.firstChild;
+  let child2 = parent.$llc || parent.firstChild;
   let fromIndex = child2.$idx || 0;
   while (child2) {
     if (fromIndex === logicalIndex) {
       child2.$idx = logicalIndex;
-      return parent.$lastLogicalChild = child2;
+      return parent.$llc = child2;
     }
     child2 = isComment(child2, "[") ? (
       // fragment start: jump to the node after the matching end anchor
@@ -11259,12 +11269,19 @@ function locateChildByLogicalIndex(parent, logicalIndex) {
 const isHydratingStack = [];
 let isHydrating = false;
 let currentHydrationNode = null;
+function pushIsHydrating(value) {
+  isHydratingStack.push(isHydrating = value);
+}
+function popIsHydrating() {
+  isHydratingStack.pop();
+  isHydrating = isHydratingStack[isHydratingStack.length - 1] || false;
+}
 function runWithoutHydration(fn) {
   try {
-    isHydrating = false;
+    pushIsHydrating(false);
     return fn();
   } finally {
-    isHydrating = true;
+    popIsHydrating();
   }
 }
 let isOptimized$1 = false;
@@ -11274,21 +11291,20 @@ function performHydration(fn, setup, cleanup) {
     locateHydrationNode = locateHydrationNodeImpl;
     Comment.prototype.$fe = void 0;
     Node.prototype.$pns = void 0;
-    Node.prototype.$uc = void 0;
     Node.prototype.$idx = void 0;
-    Node.prototype.$prevDynamicCount = void 0;
-    Node.prototype.$anchorCount = void 0;
-    Node.prototype.$appendIndex = void 0;
+    Node.prototype.$llc = void 0;
+    Node.prototype.$lpn = void 0;
+    Node.prototype.$lan = void 0;
+    Node.prototype.$lin = void 0;
     isOptimized$1 = true;
   }
   enableHydrationNodeLookup();
-  isHydratingStack.push(isHydrating = true);
+  pushIsHydrating(true);
   setup();
   const res = fn();
   cleanup();
   currentHydrationNode = null;
-  isHydratingStack.pop();
-  isHydrating = isHydratingStack[isHydratingStack.length - 1] || false;
+  popIsHydrating();
   if (!isHydrating) disableHydrationNodeLookup();
   return res;
 }
@@ -11323,8 +11339,7 @@ function adoptTemplateImpl(node, template) {
     while (node.nodeType === 8) {
       node = node.nextSibling;
       if (template.trim() === "" && isComment(node, "]") && isComment(node.previousSibling, "[")) {
-        const parent = parentNode(node);
-        node = parent.insertBefore(createTextNode(), node);
+        node.before(node = createTextNode());
         break;
       }
     }
@@ -11337,49 +11352,24 @@ function adoptTemplateImpl(node, template) {
   ) {
     node = handleMismatch(node, template);
   }
-  advanceHydrationNode(node);
+  currentHydrationNode = node.nextSibling;
   return node;
+}
+function nextNode(node) {
+  return isComment(node, "[") ? locateEndAnchor(node).nextSibling : node.nextSibling;
 }
 function locateHydrationNodeImpl() {
   let node;
   if (insertionAnchor !== void 0) {
-    const {
-      $prevDynamicCount: prevDynamicCount = 0,
-      $appendIndex: appendIndex,
-      $anchorCount: anchorCount = 0
-    } = insertionParent;
+    const { $lpn: lastPrepend, $lan: lastAppend, firstChild } = insertionParent;
     if (insertionAnchor === 0) {
-      node = prevDynamicCount === 0 && currentHydrationNode.parentNode === insertionParent ? currentHydrationNode : locateChildByLogicalIndex(insertionParent, prevDynamicCount);
+      node = insertionParent.$lpn = lastPrepend ? nextNode(lastPrepend) : firstChild;
     } else if (insertionAnchor instanceof Node) {
-      let { $idx, $uc: usedCount } = insertionAnchor;
-      if (usedCount !== void 0) {
-        node = locateChildByLogicalIndex(
-          insertionParent,
-          $idx + usedCount + 1
-        );
-        usedCount++;
-      } else {
-        insertionParent.$lastLogicalChild = node = insertionAnchor;
-        insertionParent.$anchorCount = anchorCount + 1;
-        usedCount = 0;
-      }
-      insertionAnchor.$uc = usedCount;
+      const { $lin: lastInsertedNode } = insertionAnchor;
+      node = insertionAnchor.$lin = lastInsertedNode ? nextNode(lastInsertedNode) : insertionAnchor;
     } else {
-      if (appendIndex !== null && appendIndex !== void 0) {
-        node = locateChildByLogicalIndex(insertionParent, appendIndex + 1);
-      } else {
-        if (insertionAnchor === null) {
-          node = currentHydrationNode.parentNode === insertionParent ? currentHydrationNode : locateChildByLogicalIndex(insertionParent, 0);
-        } else {
-          node = locateChildByLogicalIndex(
-            insertionParent,
-            prevDynamicCount + insertionAnchor
-          );
-        }
-      }
-      insertionParent.$appendIndex = node.$idx;
+      node = insertionParent.$lan = lastAppend ? nextNode(lastAppend) : insertionAnchor === null ? firstChild : locateChildByLogicalIndex(insertionParent, insertionAnchor);
     }
-    insertionParent.$prevDynamicCount = prevDynamicCount + 1;
   } else {
     node = currentHydrationNode;
     if (insertionParent && (!node || node.parentNode !== insertionParent)) {
@@ -11845,10 +11835,20 @@ function isFragment(val) {
   return val instanceof VaporFragment;
 }
 function setFragmentFallback(fragment, fallback) {
-  if (fragment.fallback) return;
-  fragment.fallback = fallback;
+  if (fragment.fallback) {
+    const originalFallback = fragment.fallback;
+    fragment.fallback = () => {
+      const fallbackNodes = originalFallback();
+      if (isValidBlock(fallbackNodes)) {
+        return fallbackNodes;
+      }
+      return fallback();
+    };
+  } else {
+    fragment.fallback = fallback;
+  }
   if (isFragment(fragment.nodes)) {
-    setFragmentFallback(fragment.nodes, fallback);
+    setFragmentFallback(fragment.nodes, fragment.fallback);
   }
 }
 function renderFragmentFallback(fragment) {
@@ -11973,7 +11973,7 @@ function setAttr(el, key, value) {
     }
   }
 }
-function setDOMProp(el, key, value) {
+function setDOMProp(el, key, value, forceHydrate = false) {
   if (!isApplyingFallthroughProps && el.$root && hasFallthroughKey(key)) {
     return;
   }
@@ -11984,7 +11984,9 @@ function setDOMProp(el, key, value) {
   let needRemove = false;
   if (value === "" || value == null) {
     const type = typeof prev;
-    if (value == null && type === "string") {
+    if (type === "boolean") {
+      value = includeBooleanAttr(value);
+    } else if (value == null && type === "string") {
       value = "";
       needRemove = true;
     } else if (type === "number") {
@@ -12037,7 +12039,7 @@ function setStyleIncremental(el, value) {
   const normalizedValue = isString(value) ? parseStringStyle(value) : normalizeStyle(value);
   patchStyle(el, el[cacheKey], el[cacheKey] = normalizedValue);
 }
-function setValue(el, value) {
+function setValue(el, value, forceHydrate = false) {
   if (!isApplyingFallthroughProps && el.$root && hasFallthroughKey("value")) {
     return;
   }
@@ -12103,21 +12105,25 @@ function setDynamicProps(el, args) {
 }
 function setDynamicProp(el, key, value) {
   const isSVG = false;
+  let forceHydrate = false;
   if (key === "class") {
     setClass(el, value);
   } else if (key === "style") {
     setStyle(el, value);
   } else if (isOn(key)) {
     on(el, key[2].toLowerCase() + key.slice(3), value, { effect: true });
-  } else if (key[0] === "." ? (key = key.slice(1), true) : key[0] === "^" ? (key = key.slice(1), false) : shouldSetAsProp(el, key, value, isSVG)) {
+  } else if (
+    // force hydrate v-bind with .prop modifiers
+    (forceHydrate = key[0] === ".") ? (key = key.slice(1), true) : key[0] === "^" ? (key = key.slice(1), false) : shouldSetAsProp(el, key, value, isSVG)
+  ) {
     if (key === "innerHTML") {
       setHtml(el, value);
     } else if (key === "textContent") {
       setElementText(el, value);
     } else if (key === "value" && canSetValueDirectly(el.tagName)) {
-      setValue(el, value);
+      setValue(el, value, forceHydrate);
     } else {
-      setDOMProp(el, key, value);
+      setDOMProp(el, key, value, forceHydrate);
     }
   } else {
     setAttr(el, key, value);
@@ -12131,8 +12137,7 @@ function optimizePropertyLookup() {
   const proto = Element.prototype;
   proto.$transition = void 0;
   proto.$key = void 0;
-  proto.$prependAnchor = proto.$evtclick = void 0;
-  proto.$idx = void 0;
+  proto.$fc = proto.$evtclick = void 0;
   proto.$root = false;
   proto.$html = proto.$txt = proto.$cls = proto.$sty = Text.prototype.$txt = "";
 }
@@ -12961,7 +12966,7 @@ function isValidBlock(block) {
   }
 }
 function insert(block, parent, anchor = null, parentSuspense) {
-  anchor = anchor === 0 ? parent.$prependAnchor || _child(parent) : anchor;
+  anchor = anchor === 0 ? parent.$fc || _child(parent) : anchor;
   if (block instanceof Node) {
     if (!isHydrating) {
       if (block instanceof Element && block.$transition && !block.$transition.disabled) {
@@ -13255,6 +13260,30 @@ function createComponent(component, rawProps, rawSlots, isSingleRoot, once, scop
     rawSlots,
     appContext
   );
+  if (isHydrating && isAsyncWrapper(instance) && component.__asyncHydrate && !component.__asyncResolved) {
+    const el = instance.block = currentHydrationNode;
+    instance.isMounted = true;
+    setCurrentHydrationNode(
+      isComment(el, "[") ? locateEndAnchor(el) : el.nextSibling
+    );
+    component.__asyncHydrate(
+      el,
+      instance,
+      () => setupComponent(instance, component, scopeId)
+    );
+  } else {
+    setupComponent(instance, component, scopeId);
+  }
+  onScopeDispose(() => unmountComponent(instance), true);
+  if (_insertionParent || isHydrating) {
+    mountComponent(instance, _insertionParent, _insertionAnchor);
+  }
+  if (isHydrating && _insertionAnchor !== void 0) {
+    advanceHydrationNode(_insertionParent);
+  }
+  return instance;
+}
+function setupComponent(instance, component, scopeId) {
   const prevInstance = setCurrentInstance(instance);
   const prevSub = setActiveSub();
   const setupFn = isFunction(component) ? component : component.setup;
@@ -13279,17 +13308,9 @@ function createComponent(component, rawProps, rawSlots, isSingleRoot, once, scop
       renderEffect(() => applyFallthroughProps(el, instance.attrs));
     }
   }
+  if (scopeId) setScopeId(instance.block, scopeId);
   setActiveSub(prevSub);
   setCurrentInstance(...prevInstance);
-  onScopeDispose(() => unmountComponent(instance), true);
-  if (scopeId) setScopeId(instance.block, scopeId);
-  if (_insertionParent) {
-    mountComponent(instance, _insertionParent, _insertionAnchor);
-  }
-  if (isHydrating && _insertionAnchor !== void 0) {
-    advanceHydrationNode(_insertionParent);
-  }
-  return instance;
 }
 let isApplyingFallthroughProps = false;
 function applyFallthroughProps(block, attrs) {
@@ -13400,13 +13421,8 @@ function createComponentWithFallback(comp, rawProps, rawSlots, isSingleRoot, onc
 }
 function mountComponent(instance, parent, anchor) {
   if (instance.bm) invokeArrayFns(instance.bm);
-  const block = instance.block;
-  if (isHydrating) {
-    if (!(block instanceof Node) || isArray(block) && block.some((b) => !(b instanceof Node))) {
-      insert(block, parent, anchor);
-    }
-  } else {
-    insert(block, parent, anchor);
+  if (!isHydrating) {
+    insert(instance.block, parent, anchor);
     setComponentScopeId(instance);
   }
   if (instance.m) queuePostFlushCb(() => invokeArrayFns(instance.m));
@@ -13530,8 +13546,6 @@ function defineVaporComponent(comp, extraOptions) {
   return comp;
 }
 
-/*! #__NO_SIDE_EFFECTS__ */
-// @__NO_SIDE_EFFECTS__
 function defineVaporAsyncComponent(source) {
   const {
     load,
@@ -13541,26 +13555,58 @@ function defineVaporAsyncComponent(source) {
       loadingComponent,
       errorComponent,
       delay,
-      // hydrate: hydrateStrategy,
-      timeout
-      // suspensible = true,
+      hydrate: hydrateStrategy,
+      timeout,
+      suspensible = true
     }
   } = createAsyncComponentContext(source);
   return defineVaporComponent({
     name: "VaporAsyncComponentWrapper",
     __asyncLoader: load,
-    // __asyncHydrate(el, instance, hydrate) {
-    //   // TODO async hydrate
-    // },
+    __asyncHydrate(el, instance, hydrate) {
+      let isHydrated = false;
+      watch(
+        () => instance.attrs,
+        () => {
+          if (isHydrated) return;
+          instance.bu && invokeArrayFns(instance.bu);
+          const parent = parentNode(el);
+          load().then(() => {
+            if (instance.isUnmounted) return;
+            hydrate();
+            insert(instance.block, parent, el);
+            remove(el, parent);
+          });
+        },
+        { deep: true, once: true }
+      );
+      performAsyncHydrate(
+        el,
+        instance,
+        () => {
+          hydrateNode(el, () => {
+            hydrate();
+            insert(instance.block, parentNode(el), el);
+            isHydrated = true;
+          });
+        },
+        getResolvedComp,
+        load,
+        hydrateStrategy
+      );
+    },
     get __asyncResolved() {
       return getResolvedComp();
     },
     setup() {
       const instance = currentInstance;
       markAsyncBoundary(instance);
-      const frag = new DynamicFragment();
+      const frag = isHydrating ? new DynamicFragment("async component") : new DynamicFragment();
       let resolvedComp = getResolvedComp();
       if (resolvedComp) {
+        if (isInSSRComponentSetup) {
+          return () => createInnerComp$1(resolvedComp, instance);
+        }
         frag.update(() => createInnerComp(resolvedComp, instance));
         return frag;
       }
@@ -13573,6 +13619,15 @@ function defineVaporAsyncComponent(source) {
           !errorComponent
         );
       };
+      if (suspensible && instance.suspense) ;
+      if (isInSSRComponentSetup) {
+        return loadInnerComponent(
+          instance,
+          load,
+          onError,
+          errorComponent
+        );
+      }
       const { loaded, error, delayed } = useAsyncComponentState(
         delay,
         timeout,
@@ -13620,7 +13675,7 @@ let t;
 // @__NO_SIDE_EFFECTS__
 function template(html, root) {
   let node;
-  const fn = () => {
+  return () => {
     if (isHydrating) {
       const adopted = adoptTemplate(currentHydrationNode, html);
       if (root) adopted.$root = true;
@@ -13638,7 +13693,6 @@ function template(html, root) {
     if (root) ret.$root = true;
     return ret;
   };
-  return fn;
 }
 
 function createIf(condition, b1, b2, once) {
@@ -13724,6 +13778,10 @@ const createFor = (src, renderItem, getKey, flags = 0, setup) => {
         parentAnchor = newLength === 0 ? currentHydrationNode.nextSibling : currentHydrationNode;
         if (!parentAnchor || parentAnchor && !isComment(parentAnchor, "]")) {
           throw new Error(`v-for fragment anchor node was not found.`);
+        }
+        if (_insertionParent && _insertionParent.$llc) {
+          parentAnchor.$idx = _insertionParent.$llc.$idx;
+          _insertionParent.$llc = parentAnchor;
         }
       }
     } else {
@@ -13937,13 +13995,7 @@ const createFor = (src, renderItem, getKey, flags = 0, setup) => {
     if (frag.$transition) {
       applyTransitionHooks(block.nodes, frag.$transition, false);
     }
-    if (isHydrating) {
-      if (!(block.nodes instanceof Node) || isArray(block.nodes) && block.nodes.some((b) => !(b instanceof Node))) {
-        insert(block.nodes, parent, anchor);
-      }
-    } else if (parent) {
-      insert(block.nodes, parent, anchor);
-    }
+    if (parent) insert(block.nodes, parent, anchor);
     return block;
   };
   const update = ({ itemRef, keyRef, indexRef }, newItem, newKey, newIndex) => {
@@ -14494,4 +14546,4 @@ function getFirstConnectedChild(children) {
   }
 }
 
-export { BaseTransition, BaseTransitionPropsValidators, Comment$1 as Comment, DeprecationTypes, EffectScope, ErrorCodes, ErrorTypeStrings, Fragment, KeepAlive, MismatchTypes, MoveType, ReactiveEffect, Static, Suspense, Teleport, Text$1 as Text, TrackOpTypes, Transition, TransitionGroup, TransitionPropsValidators, TriggerOpTypes, VaporFragment, VaporTeleportImpl as VaporTeleport, VaporTransition, VaporTransitionGroup, VueElement, addTransitionClass, applyCheckboxModel, applyDynamicModel, applyRadioModel, applySelectModel, applyTextModel, applyVShow, assertNumber, baseApplyTranslation, baseEmit, baseNormalizePropsOptions, baseResolveTransitionHooks, callPendingCbs, callWithAsyncErrorHandling, callWithErrorHandling, camelize, capitalize, checkTransitionMode, child, cloneVNode, compatUtils, compile, computed, createApp, createAppAPI, createAsyncComponentContext, createBlock, createCanSetSetupRefChecker, createCommentVNode, createComponent, createComponentWithFallback, createDynamicComponent, createElementBlock, createBaseVNode as createElementVNode, createFor, createForSlots, createHydrationRenderer, createIf, createInternalObject, createKeyedFragment, createPropsRestProxy, createRenderer, createSSRApp, createSlot, createSlots, createStaticVNode, createTemplateRefSetter, createTextNode, createTextVNode, createVNode, createVaporApp, createVaporSSRApp, currentInstance, customRef, defineAsyncComponent, defineComponent, defineCustomElement, defineEmits, defineExpose, defineModel, defineOptions, defineProps, defineSSRCustomElement, defineSlots, defineVaporAsyncComponent, defineVaporComponent, delegate, delegateEvents, devtools, effect, effectScope, endMeasure, ensureHydrationRenderer, ensureRenderer, ensureVaporSlotFallback, expose, flushOnAppMount, forceReflow, forwardedSlotCreator, getAttributeMismatch, getCurrentInstance, getCurrentScope, getCurrentWatcher, getDefaultValue, getInheritedScopeIds, getRestElement, getTransitionRawChildren, guardReactiveProps, h, handleError, handleMovedChildren, hasCSSTransform, hasInjectionContext, hydrate, hydrateOnIdle, hydrateOnInteraction, hydrateOnMediaQuery, hydrateOnVisible, initCustomFormatter, initDirectivesForSSR, initFeatureFlags, inject, insert, isAsyncWrapper, isEmitListener, isFragment, isMapEqual, isMemoSame, isMismatchAllowed, isProxy, isReactive, isReadonly, isRef, isRuntimeOnly, isSetEqual, isShallow, isTeleportDeferred, isTeleportDisabled, isTemplateNode, isVNode, isValidHtmlOrSvgAttribute, isVaporComponent, leaveCbKey, markAsyncBoundary, markRaw, mergeDefaults, mergeModels, mergeProps, moveCbKey, next, nextTick, nextUid, normalizeClass, normalizeContainer, normalizeProps, normalizeStyle, nthChild, on, onActivated, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onDeactivated, onErrorCaptured, onMounted, onRenderTracked, onRenderTriggered, onScopeDispose, onServerPrefetch, onUnmounted, onUpdated, onWatcherCleanup, openBlock, patchStyle, performTransitionEnter, performTransitionLeave, popScopeId, popWarningContext, prepend, provide, proxyRefs, pushScopeId, pushWarningContext, queueJob, queuePostFlushCb, reactive, readonly, ref, registerHMR, registerRuntimeCompiler, remove, removeTransitionClass, render, renderEffect, renderList, renderSlot, resolveComponent, resolveDirective, resolveDynamicComponent, resolveFilter, resolvePropValue, resolveTarget as resolveTeleportTarget, resolveTransitionHooks$1 as resolveTransitionHooks, resolveTransitionProps, setAttr, setBlockTracking, setClass, setCurrentInstance, setDOMProp, setDevtoolsHook, setDynamicEvents, setDynamicProps, setElementText, setHtml, setInsertionState, setProp, setStyle, setText, setTransitionHooks$1 as setTransitionHooks, setValue, shallowReactive, shallowReadonly$1 as shallowReadonly, shallowRef, shouldSetAsProp, simpleSetCurrentInstance, ssrContextKey, ssrUtils, startMeasure, stop, template, toClassSet, toDisplayString, toHandlerKey, toHandlers, toRaw, toRef, toRefs, toStyleMap, toValue, transformVNodeArgs, triggerRef, txt, unref, unregisterHMR, useAsyncComponentState, useAttrs, useCssModule, useCssVars, useHost, useId, useModel, useSSRContext, useShadowRoot, useSlots, useTemplateRef, useTransitionState, vModelCheckbox, vModelCheckboxInit, vModelCheckboxUpdate, vModelDynamic, getValue as vModelGetValue, vModelRadio, vModelSelect, vModelSelectInit, vModelSetSelected, vModelText, vModelTextInit, vModelTextUpdate, vShow, vShowHidden, vShowOriginalDisplay, validateComponentName, validateProps, vaporInteropPlugin, version, warn$1 as warn, warnPropMismatch, watch, watchEffect, watchPostEffect, watchSyncEffect, withAsyncContext, withCtx, withDefaults, withDirectives, withKeys, withMemo, withModifiers, withScopeId, withVaporDirectives };
+export { BaseTransition, BaseTransitionPropsValidators, Comment$1 as Comment, DeprecationTypes, EffectScope, ErrorCodes, ErrorTypeStrings, Fragment, KeepAlive, MismatchTypes, MoveType, ReactiveEffect, Static, Suspense, Teleport, Text$1 as Text, TrackOpTypes, Transition, TransitionGroup, TransitionPropsValidators, TriggerOpTypes, VaporFragment, VaporTeleportImpl as VaporTeleport, VaporTransition, VaporTransitionGroup, VueElement, addTransitionClass, applyCheckboxModel, applyDynamicModel, applyRadioModel, applySelectModel, applyTextModel, applyVShow, assertNumber, baseApplyTranslation, baseEmit, baseNormalizePropsOptions, baseResolveTransitionHooks, callPendingCbs, callWithAsyncErrorHandling, callWithErrorHandling, camelize, capitalize, checkTransitionMode, child, cloneVNode, compatUtils, compile, computed, createApp, createAppAPI, createAsyncComponentContext, createBlock, createCanSetSetupRefChecker, createCommentVNode, createComponent, createComponentWithFallback, createDynamicComponent, createElementBlock, createBaseVNode as createElementVNode, createFor, createForSlots, createHydrationRenderer, createIf, createInnerComp$1 as createInnerComp, createInternalObject, createKeyedFragment, createPropsRestProxy, createRenderer, createSSRApp, createSlot, createSlots, createStaticVNode, createTemplateRefSetter, createTextNode, createTextVNode, createVNode, createVaporApp, createVaporSSRApp, currentInstance, customRef, defineAsyncComponent, defineComponent, defineCustomElement, defineEmits, defineExpose, defineModel, defineOptions, defineProps, defineSSRCustomElement, defineSlots, defineVaporAsyncComponent, defineVaporComponent, delegate, delegateEvents, devtools, effect, effectScope, endMeasure, ensureHydrationRenderer, ensureRenderer, ensureVaporSlotFallback, expose, flushOnAppMount, forceReflow, forwardedSlotCreator, getAttributeMismatch, getCurrentInstance, getCurrentScope, getCurrentWatcher, getDefaultValue, getInheritedScopeIds, getRestElement, getTransitionRawChildren, guardReactiveProps, h, handleError, handleMovedChildren, hasCSSTransform, hasInjectionContext, hydrate, hydrateOnIdle, hydrateOnInteraction, hydrateOnMediaQuery, hydrateOnVisible, initCustomFormatter, initDirectivesForSSR, initFeatureFlags, inject, insert, isAsyncWrapper, isEmitListener, isFragment, isInSSRComponentSetup, isMapEqual, isMemoSame, isMismatchAllowed, isProxy, isReactive, isReadonly, isRef, isRuntimeOnly, isSetEqual, isShallow, isTeleportDeferred, isTeleportDisabled, isTemplateNode, isVNode, isValidHtmlOrSvgAttribute, isVaporComponent, leaveCbKey, loadInnerComponent, markAsyncBoundary, markRaw, mergeDefaults, mergeModels, mergeProps, moveCbKey, next, nextTick, nextUid, normalizeClass, normalizeContainer, normalizeProps, normalizeStyle, nthChild, on, onActivated, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onDeactivated, onErrorCaptured, onMounted, onRenderTracked, onRenderTriggered, onScopeDispose, onServerPrefetch, onUnmounted, onUpdated, onWatcherCleanup, openBlock, patchStyle, performAsyncHydrate, performTransitionEnter, performTransitionLeave, popScopeId, popWarningContext, prepend, provide, proxyRefs, pushScopeId, pushWarningContext, queueJob, queuePostFlushCb, reactive, readonly, ref, registerHMR, registerRuntimeCompiler, remove, removeTransitionClass, render, renderEffect, renderList, renderSlot, resolveComponent, resolveDirective, resolveDynamicComponent, resolveFilter, resolvePropValue, resolveTarget as resolveTeleportTarget, resolveTransitionHooks$1 as resolveTransitionHooks, resolveTransitionProps, setAttr, setBlockTracking, setClass, setCurrentInstance, setDOMProp, setDevtoolsHook, setDynamicEvents, setDynamicProps, setElementText, setHtml, setInsertionState, setProp, setStyle, setText, setTransitionHooks$1 as setTransitionHooks, setValue, shallowReactive, shallowReadonly$1 as shallowReadonly, shallowRef, shouldSetAsProp, simpleSetCurrentInstance, ssrContextKey, ssrUtils, startMeasure, stop, template, toClassSet, toDisplayString, toHandlerKey, toHandlers, toRaw, toRef, toRefs, toStyleMap, toValue, transformVNodeArgs, triggerRef, txt, unref, unregisterHMR, useAsyncComponentState, useAttrs, useCssModule, useCssVars, useHost, useId, useModel, useSSRContext, useShadowRoot, useSlots, useTemplateRef, useTransitionState, vModelCheckbox, vModelCheckboxInit, vModelCheckboxUpdate, vModelDynamic, getValue as vModelGetValue, vModelRadio, vModelSelect, vModelSelectInit, vModelSetSelected, vModelText, vModelTextInit, vModelTextUpdate, vShow, vShowHidden, vShowOriginalDisplay, validateComponentName, validateProps, vaporInteropPlugin, version, warn$1 as warn, warnPropMismatch, watch, watchEffect, watchPostEffect, watchSyncEffect, withAsyncContext, withCtx, withDefaults, withDirectives, withKeys, withMemo, withModifiers, withScopeId, withVaporDirectives };

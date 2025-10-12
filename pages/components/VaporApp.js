@@ -25,50 +25,40 @@ _delegateEvents("click");
 import Comp from "./VaporChild.js";
 
 const __sfc__ = {
-  __name: "App",
+  __name: 'App',
   __vapor: true,
   setup(__props) {
-    const msg = ref("hi");
-    const show = ref(true);
 
-    const n9 = t2();
-    const n0 = _child(n9, 0);
-    _setInsertionState(n9, 1);
-    const n1 = _createIf(
-      () => show.value,
-      () => {
-        const n8 = t1();
-        _setInsertionState(n8, null);
-        const n3 = _createFor(
-          () => window.ITEM_COUNT,
-          (_for_item0) => {
-            const n7 = t1();
-            _setInsertionState(n7, null);
-            const n6 = _createComponent(
-              Comp,
-              { item: () => _for_item0.value },
-              {
-                default: () => {
-                  const n5 = t0();
-                  const x5 = _txt(n5);
-                  _renderEffect(() =>
-                    _setText(x5, _toDisplayString(msg.value))
-                  );
-                  return n5;
-                },
-              }
-            );
-            return n7;
-          },
-          undefined,
-          5
-        );
-        return n8;
-      }
-    );
-    n0.$evtclick = () => (show.value = !show.value);
-    return n9;
-  },
-};
+const msg = ref('hi')
+const show = ref(true)
+
+
+  const n9 = t2()
+  const n0 = _child(n9, 0)
+  _setInsertionState(n9, 1)
+  const n1 = _createIf(() => (show.value), () => {
+    const n8 = t1()
+    _setInsertionState(n8, null)
+    const n3 = _createFor(() => (window.ITEM_COUNT), (_for_item0) => {
+      const n7 = t1()
+      _setInsertionState(n7, null)
+      const n6 = _createComponent(Comp, { item: () => (_for_item0.value) }, {
+        "default": () => {
+          const n5 = t0()
+          const x5 = _txt(n5)
+          _renderEffect(() => _setText(x5, _toDisplayString(msg.value)))
+          return n5
+        }
+      })
+      return n7
+    }, undefined, 5)
+    return n8
+  })
+  n0.$evtclick = () => (show.value = !show.value)
+  return n9
+
+}
+
+}
 __sfc__.__file = "src/App.vue";
 export default __sfc__;
