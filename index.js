@@ -45,7 +45,7 @@ async function runTests() {
     "http://localhost:3000/pages/vapor-hydration",
   ];
 
-  const numTests = 20;
+  const numTests = 5;
   const results = [];
   for (const url of pages) {
     let total = 0;

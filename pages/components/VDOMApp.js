@@ -5,7 +5,6 @@
   "show": "setup-ref"
 } */
 import {
-  ref,
   createElementVNode as _createElementVNode,
   renderList as _renderList,
   Fragment as _Fragment,
@@ -15,6 +14,7 @@ import {
   withCtx as _withCtx,
   createVNode as _createVNode,
   createCommentVNode as _createCommentVNode,
+  ref,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
 
 const _hoisted_1 = { key: 0 };
@@ -47,7 +47,7 @@ const __sfc__ = {
                 _createElementBlock(
                   _Fragment,
                   null,
-                  _renderList(window.ITEM_COUNT, (item) => {
+                  _renderList(ITEM_COUNT, (item) => {
                     return _createElementVNode("div", null, [
                       _createVNode(
                         Comp,

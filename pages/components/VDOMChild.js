@@ -5,7 +5,6 @@
   "show": "setup-ref"
 } */
 import {
-  ref,
   toDisplayString as _toDisplayString,
   openBlock as _openBlock,
   createElementBlock as _createElementBlock,
@@ -16,10 +15,10 @@ import {
   renderList as _renderList,
   Fragment as _Fragment,
   renderSlot as _renderSlot,
+  ref,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
 
 const _hoisted_1 = { key: 0 };
-const _hoisted_2 = { key: 1 };
 
 
 const __sfc__ = {
@@ -43,7 +42,7 @@ const __sfc__ = {
                   _toDisplayString(__props.item),
                 1 /* TEXT */
               ))
-            : (_openBlock(), _createElementBlock("h2", _hoisted_2, "foo")),
+            : _createCommentVNode("v-if", true),
           _withDirectives(
             _createElementVNode(
               "input",
@@ -70,14 +69,14 @@ const __sfc__ = {
             }),
             64 /* STABLE_FRAGMENT */
           )),
+          _renderSlot(_ctx.$slots, "default"),
           _cache[1] ||
             (_cache[1] = _createElementVNode(
               "span",
               null,
-              "1",
+              null,
               -1 /* CACHED */
             )),
-          _renderSlot(_ctx.$slots, "default"),
         ])
       );
     };
