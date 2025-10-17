@@ -14,13 +14,13 @@
 </html>
 <script type="module">
   import { genHtml } from './init.js';
-  document.getElementById("app").innerHTML = genHtml();
+  // document.getElementById("app").innerHTML = genHtml();
 </script>
 <script type="module">
-  import { createVaporSSRApp, nextTick } from "./libs/vue.runtime-with-vapor.esm-browser.prod.js";
+  import { createVaporApp, nextTick } from "./libs/vue.runtime-with-vapor.esm-browser.prod.js";
   import App from './components/VaporApp.js';
   performance.mark('vue-hydration-start')
-  createVaporSSRApp(App).mount("#app");
+  createVaporApp(App).mount("#app");
   performance.mark('vue-hydration-script-end')
   nextTick().then(() => {
     performance.mark('vue-hydration-end')
