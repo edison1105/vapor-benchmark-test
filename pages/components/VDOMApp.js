@@ -1,19 +1,23 @@
 /* Analyzed bindings: {
   "Comp": "setup-const",
   "ref": "setup-const",
-  "msg": "setup-ref"
+  "msg": "setup-ref",
+  "show": "setup-ref"
 } */
 import {
+  ref,
+  createElementVNode as _createElementVNode,
   renderList as _renderList,
   Fragment as _Fragment,
   openBlock as _openBlock,
   createElementBlock as _createElementBlock,
   toDisplayString as _toDisplayString,
-  createElementVNode as _createElementVNode,
   withCtx as _withCtx,
   createVNode as _createVNode,
-  ref,
+  createCommentVNode as _createCommentVNode,
 } from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
+
+const _hoisted_1 = { key: 0 };
 
 import Comp from "./VDOMChild.js";
 
@@ -21,6 +25,7 @@ const __sfc__ = {
   __name: "App",
   setup(__props) {
     const msg = ref("hi");
+    const show = ref(true);
 
     return (_ctx, _cache) => {
       return (
@@ -28,26 +33,50 @@ const __sfc__ = {
         _createElementBlock(
           _Fragment,
           null,
-          _renderList(ITEM_COUNT, (item) => {
-            return _createVNode(
-              Comp,
-              { item: item },
+          [
+            _createElementVNode(
+              "button",
               {
-                default: _withCtx(() => [
-                  _createElementVNode(
-                    "span",
-                    null,
-                    _toDisplayString(msg.value),
-                    1 /* TEXT */
-                  ),
-                ]),
-                _: 2 /* DYNAMIC */,
+                onClick:
+                  _cache[0] ||
+                  (_cache[0] = ($event) => (show.value = !show.value)),
               },
-              1032 /* PROPS, DYNAMIC_SLOTS */,
-              ["item"]
-            );
-          }),
-          64 /* STABLE_FRAGMENT */
+              "toggle",
+            ),
+            show.value
+              ? (_openBlock(),
+                _createElementBlock("div", _hoisted_1, [
+                  (_openBlock(),
+                  _createElementBlock(
+                    _Fragment,
+                    null,
+                    _renderList(ITEM_COUNT, (item) => {
+                      return _createElementVNode("div", null, [
+                        _createVNode(
+                          Comp,
+                          { item: item },
+                          {
+                            default: _withCtx(() => [
+                              _createElementVNode(
+                                "span",
+                                null,
+                                _toDisplayString(msg.value),
+                                1 /* TEXT */,
+                              ),
+                            ]),
+                            _: 1 /* STABLE */,
+                          },
+                          8 /* PROPS */,
+                          ["item"],
+                        ),
+                      ]);
+                    }),
+                    64 /* STABLE_FRAGMENT */,
+                  )),
+                ]))
+              : _createCommentVNode("v-if", true),
+          ],
+          64 /* STABLE_FRAGMENT */,
         )
       );
     };

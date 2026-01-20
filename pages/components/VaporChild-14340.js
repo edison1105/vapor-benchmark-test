@@ -18,7 +18,7 @@ import {
   applyTextModel as _applyTextModel,
   template as _template,
   ref,
-} from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
+} from "../libs/vue.runtime-with-vapor.esm-browser-14340.prod.js";
 const t0 = _template("<h1> ");
 const t1 = _template("<div> ");
 const t2 = _template("<div><input><!><span>", true);
@@ -34,7 +34,7 @@ const __sfc__ = {
     const n8 = t2();
     const n3 = _child(n8, 1);
     const n9 = _next(n3, 2);
-    _setInsertionState(n8, 0);
+    _setInsertionState(n8, 0, 0);
     const n0 = _createIf(
       () => show.value,
       () => {
@@ -49,7 +49,7 @@ const __sfc__ = {
         return n2;
       },
     );
-    _setInsertionState(n8, n9);
+    _setInsertionState(n8, n9, 2);
     const n4 = _createFor(
       () => 5,
       (_for_item0) => {
@@ -61,7 +61,7 @@ const __sfc__ = {
       undefined,
       4,
     );
-    _setInsertionState(n8, n9, true);
+    _setInsertionState(n8, n9, 3, true);
     const n7 = _createSlot("default", null);
     _applyTextModel(
       n3,

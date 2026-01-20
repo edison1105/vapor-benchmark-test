@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vapor hydration</title>
+</head>
+
+<body>
+  <div id="app"></div>
+</body>
+
+</html>
+<script type="module">
+  import { genHtml } from './init.js';
+  document.getElementById("app").innerHTML = genHtml();
+</script>
+<script type="module">
+  import { createVaporSSRApp, nextTick } from "./libs/vue.runtime-with-vapor.esm-browser-14340.prod.js";
+  import App from './components/VaporApp-14340.js';
+  performance.mark('vue-hydration-start')
+  createVaporSSRApp(App).mount("#app");
+  performance.mark('vue-hydration-script-end')
+  nextTick().then(() => {
+    performance.mark('vue-hydration-end')
+    performance.measure('vue-hydration-script-total', 'vue-hydration-start', 'vue-hydration-script-end')
+    performance.measure('vue-hydration-total', 'vue-hydration-start', 'vue-hydration-end')
+
+    const total = performance.getEntriesByName('vue-hydration-total')
+    const scriptTotal = performance.getEntriesByName('vue-hydration-script-total')
+    console.log(total[0].duration);
+    console.log(scriptTotal[0].duration);
+  });
+</script>

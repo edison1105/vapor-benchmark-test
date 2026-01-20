@@ -40,11 +40,12 @@ async function runBenchmark(url) {
 
 async function runTests() {
   const pages = [
-    "http://localhost:3000/pages/vdom-hydration",
+    // "http://localhost:3000/pages/vdom-hydration",
+    "http://localhost:3000/pages/vapor-hydration-14340",
     "http://localhost:3000/pages/vapor-hydration",
   ];
 
-  const numTests = 5;
+  const numTests = 20;
   const results = [];
   for (const url of pages) {
     let total = 0;

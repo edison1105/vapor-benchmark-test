@@ -17,12 +17,12 @@ import {
   delegateEvents as _delegateEvents,
   template as _template,
   ref,
-} from "../libs/vue.runtime-with-vapor.esm-browser.prod.js";
+} from "../libs/vue.runtime-with-vapor.esm-browser-14340.prod.js";
 const t0 = _template("<button>toggle");
 const t1 = _template("<span> ");
 const t2 = _template("<div>");
 _delegateEvents("click");
-import Comp from "./VaporChild.js";
+import Comp from "./VaporChild-14340.js";
 
 const __sfc__ = {
   __name: "App",
@@ -36,12 +36,12 @@ const __sfc__ = {
       () => show.value,
       () => {
         const n8 = t2();
-        _setInsertionState(n8, null, true);
+        _setInsertionState(n8, null, 0, true);
         const n3 = _createFor(
           () => ITEM_COUNT,
           (_for_item0) => {
             const n7 = t2();
-            _setInsertionState(n7, null, true);
+            _setInsertionState(n7, null, 0, true);
             const n6 = _createComponent(
               Comp,
               { item: () => _for_item0.value },

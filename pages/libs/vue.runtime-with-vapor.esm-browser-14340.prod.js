@@ -11517,15 +11517,17 @@ const compile = (_template) => {
 
 let insertionParent;
 let insertionAnchor;
+let insertionIndex;
 let isLastInsertion;
-function setInsertionState(parent, anchor, last) {
+function setInsertionState(parent, anchor, logicalIndex, last) {
   insertionParent = parent;
   isLastInsertion = last;
+  insertionIndex = logicalIndex;
   if (anchor !== void 0) {
     if (isHydrating) {
-      insertionAnchor = anchor;
+      insertionAnchor = void 0;
     } else {
-      insertionAnchor = typeof anchor === "number" && anchor > 0 ? null : anchor;
+      insertionAnchor = anchor;
       if (anchor === 0 && !parent.$fc) {
         parent.$fc = parent.firstChild;
       }
@@ -11535,7 +11537,7 @@ function setInsertionState(parent, anchor, last) {
   }
 }
 function resetInsertionState() {
-  insertionParent = insertionAnchor = isLastInsertion = void 0;
+  insertionParent = insertionAnchor = insertionIndex = isLastInsertion = void 0;
 }
 
 let currentHydrationNode = null;
@@ -11564,10 +11566,6 @@ function performHydration(fn, setup, cleanup) {
     Node.prototype.$pns = void 0;
     Node.prototype.$idx = void 0;
     Node.prototype.$llc = void 0;
-    Node.prototype.$lpn = void 0;
-    Node.prototype.$lan = void 0;
-    Node.prototype.$lin = void 0;
-    Node.prototype.$curIdx = void 0;
     isOptimized$1 = true;
   }
   enableHydrationNodeLookup();
@@ -11632,23 +11630,12 @@ function locateNextNode(node) {
 }
 function locateHydrationNodeImpl() {
   let node;
-  if (insertionAnchor !== void 0) {
-    const { $lpn: lastPrepend, $lan: lastAppend, firstChild } = insertionParent;
-    if (insertionAnchor === 0) {
-      node = insertionParent.$lpn = lastPrepend ? locateNextNode(lastPrepend) : firstChild;
-    } else if (insertionAnchor instanceof Node) {
-      const { $lin: lastInsertedNode } = insertionAnchor;
-      node = insertionAnchor.$lin = lastInsertedNode ? locateNextNode(lastInsertedNode) : insertionAnchor;
-    } else {
-      node = insertionParent.$lan = lastAppend ? locateNextNode(lastAppend) : insertionAnchor === null ? firstChild : locateChildByLogicalIndex(insertionParent, insertionAnchor);
-    }
-    insertionParent.$llc = node;
-    node.$idx = insertionParent.$curIdx = insertionParent.$curIdx === void 0 ? 0 : insertionParent.$curIdx + 1;
+  if (insertionIndex !== void 0) {
+    node = locateChildByLogicalIndex(insertionParent, insertionIndex);
+  } else if (insertionParent) {
+    node = insertionParent.firstChild;
   } else {
     node = currentHydrationNode;
-    if (insertionParent && (!node || node.parentNode !== insertionParent)) {
-      node = insertionParent.firstChild;
-    }
   }
   resetInsertionState();
   currentHydrationNode = node;
@@ -11805,6 +11792,10 @@ function disableHydrationNodeLookup() {
 function locateChildByLogicalIndex(parent, logicalIndex) {
   let child2 = parent.$llc || parent.firstChild;
   let fromIndex = child2.$idx || 0;
+  if (logicalIndex < fromIndex) {
+    child2 = parent.firstChild;
+    fromIndex = 0;
+  }
   while (child2) {
     if (fromIndex === logicalIndex) {
       child2.$idx = logicalIndex;
@@ -11817,11 +11808,6 @@ function locateChildByLogicalIndex(parent, logicalIndex) {
     fromIndex++;
   }
   return null;
-}
-function updateLastLogicalChild(parent, child2) {
-  if (!isComment(child2, "]")) return;
-  child2.$idx = parent.$curIdx || 0;
-  parent.$llc = child2;
 }
 
 function addEventListener(el, event, handler, options) {
@@ -15197,6 +15183,7 @@ class ForBlock extends VaporFragment {
 const createFor = (src, renderItem, getKey, flags = 0, setup) => {
   const _insertionParent = insertionParent;
   const _insertionAnchor = insertionAnchor;
+  const _insertionIndex = insertionIndex;
   const _isLastInsertion = isLastInsertion;
   if (isHydrating) {
     locateHydrationNode();
@@ -15233,8 +15220,9 @@ const createFor = (src, renderItem, getKey, flags = 0, setup) => {
       }
       if (isHydrating) {
         parentAnchor = newLength === 0 ? currentHydrationNode.nextSibling : currentHydrationNode;
-        if (_insertionParent) {
-          updateLastLogicalChild(_insertionParent, parentAnchor);
+        if (_insertionParent && isComment(parentAnchor, "]")) {
+          parentAnchor.$idx = _insertionIndex || 0;
+          _insertionParent.$llc = parentAnchor;
         }
       }
     } else {
